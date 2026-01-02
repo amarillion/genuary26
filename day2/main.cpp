@@ -127,8 +127,8 @@ int main(int argc, const char *const *argv)
 	mainloop
 		.setFixedResolution(false)
 		.setUsagiMode()
-		.setTitle("Genuary26 Day 1")
-		.setAppName("Genuary26.1")
+		.setTitle("Genuary26 Day 2")
+		.setAppName("Genuary26.2")
 		.setApp(engine);
 
 	mainloop.setPreferredDisplayResolution(1024, 768);
