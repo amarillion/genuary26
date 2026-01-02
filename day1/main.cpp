@@ -49,6 +49,8 @@ public:
 		al_draw_filled_circle(ox, oy, radius, al_map_rgb(128, 128, 128));
 		al_draw_filled_circle(x, y, radius, al_map_rgb(255, 255, 255));
 	}
+
+	virtual ~App() {}
 };
 
 int main(int argc, const char *const *argv)
