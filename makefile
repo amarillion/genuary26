@@ -7,7 +7,7 @@
 # TARGET=LINUX
 
 CCFLAGS = -std=c++20 -Icommon/include
-CFLAGS = -Iinclude -W -Wall -Wno-unused -DUSE_MOUSE
+CFLAGS = -W -Wall -Wno-unused -DUSE_MOUSE
 LFLAGS =
 LIBS =
 
@@ -48,23 +48,72 @@ endif
 BUILDDIR=build/$(BUILD)_$(TARGET)
 OBJDIR=$(BUILDDIR)/obj
 
-BIN = $(BUILDDIR)/day1$(BINSUF)
+# Common sources / objects
+COMMON_SRCS := $(wildcard common/src/*.cpp)
+COMMON_OBJS := $(patsubst %.cpp,$(OBJDIR)/%.o,$(notdir $(COMMON_SRCS)))
 
-vpath %.cpp common/src:day1
+# Discover day directories automatically
+DAYS := $(notdir $(wildcard day*))
 
-SRC = $(wildcard day?/*.cpp) $(wildcard common/src/*.cpp)
-OBJ = $(patsubst %.cpp, $(OBJDIR)/%.o, $(notdir $(SRC)))
-DEP = $(patsubst %.cpp, $(OBJDIR)/%.d, $(notdir $(SRC)))
+# TARGETS     += $(BUILDDIR)/$1/$1$(BINSUF)
+TARGETS := $(patsubst %,$(BUILDDIR)/%$(BINSUF),$(DAYS))
 
-$(BIN) : $(OBJ) $(LIB)
-	$(LD) $^ -o $@ $(LIBS) $(LFLAGS)
+.PHONY: all clean
+all: $(TARGETS)
 
-$(OBJ) : $(OBJDIR)/%.o : %.cpp | $(OBJDIR)
-	$(CXX) $(CCFLAGS) $(CFLAGS) -MMD -c $< -o $@
+# Per-day sources / objects
+define day_template
 
-$(OBJDIR):
-	$(shell mkdir -p $(OBJDIR) >/dev/null)
+DAY_SRCS_$1 := $(wildcard $1/*.cpp)
+DAY_OBJS_$1 := $$(DAY_SRCS_$1:%.cpp=$(OBJDIR)/%.o)
 
-.PHONY: clean
+$(BUILDDIR)/$1$(BINSUF): $(COMMON_OBJS) $$(DAY_OBJS_$1)
+	@mkdir -p $$(@D)
+	$(CXX) $$^ -o $$@ $(LFLAGS) $(LIBS)
+
+$$(DAY_OBJS_$1): $(OBJDIR)/$1/%.o: $1/%.cpp
+	@mkdir -p $$(@D)
+	$(CXX) $(CCFLAGS) $(CFLAGS) -c $$< -o $$@
+
+endef
+
+$(foreach d,$(DAYS),$(eval $(call collect_targets,$(d))))
+$(foreach d,$(DAYS),$(eval $(call day_template,$(d))))
+
+$(COMMON_OBJS): $(OBJDIR)/%.o: common/src/%.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CCFLAGS) $(CFLAGS) -c $< -o $@
+
+
+# # Link each day binary
+# $(TARGETS) : $(BUILDDIR)/%: $(COMMON_OBJS) $(BUILDDIR)/%/*.o
+# 	@mkdir -p $(@D)
+# 	$(CXX) $^ -o $@
+
+# Compile rule (preserves directory structure)
+# $(BUILDDIR)/%.o: %.cpp
+# 	@mkdir -p $(@D)
+# 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# SRC = $(wildcard day?/*.cpp) $(wildcard common/src/*.cpp)
+# OBJ = $(patsubst %.cpp, $(OBJDIR)/%.o, $(notdir $(SRC)))
+# DEP = $(patsubst %.cpp, $(OBJDIR)/%.d, $(notdir $(SRC)))
+
+# # Link each day binary
+# $(BUILDDIR)/%/%: $(COMMON_OBJS) $(OBJDIR)/%/*.o
+# 	@mkdir -p $(@D)
+# 	$(CXX) $^ -o $@
+
+# $(BIN) : $(OBJ) $(LIB)
+# 	$(LD) $^ -o $@ $(LIBS) $(LFLAGS)
+
+# $(OBJ) : $(OBJDIR)/%.o : %.cpp | $(OBJDIR)
+# 	$(CXX) $(CCFLAGS) $(CFLAGS) -MMD -c $< -o $@
+
+# $(OBJDIR):
+# 	$(shell mkdir -p $(OBJDIR) >/dev/null)
+
 clean:
-	-$(RM) $(OBJ) $(BIN)
+	rm -r $(BUILDDIR)
+
+print-%  : ; @echo $* = $($*)
