@@ -1,5 +1,5 @@
 #include <cassert>
-#include "simpleloop.h"
+#include "mainloop.h"
 #include "color.h"
 
 #include <allegro5/allegro_image.h>
@@ -13,7 +13,6 @@
 #include <iostream>
 
 using namespace std;
-using namespace Simple;
 
 MainLoop *MainLoop::instance = nullptr;
 
@@ -40,14 +39,9 @@ MainLoop &MainLoop::setConfigFilename(const char *_configFilename)
 	return *this;
 }
 
-MainLoop &MainLoop::setApp(const std::shared_ptr<IApp> &_app) {
-	app = _app;
-	return *this;
-}
-
 MainLoop::MainLoop() :
 		buffer(nullptr), equeue(nullptr), logicTimer(nullptr), display(nullptr),
-		app(nullptr), localAppData(nullptr), configPath(nullptr),
+		localAppData(nullptr), configPath(nullptr),
 		configFilename("twist.cfg"), title("untitled"), appname(nullptr),
 		prefGameSize(Point(640, 480)), prefDisplaySize(Point(-1, -1)), stretch (false), smokeTest(false), logicIntervalMsec(20),
 #ifdef USE_MONITORING
@@ -234,8 +228,6 @@ int MainLoop::init(int argc, const char *const *argv)
 	return 0;
 }
 
-namespace Simple {
-
 vector<ALLEGRO_DISPLAY_MODE> getAvailableDisplayModes()
 {
 	vector<ALLEGRO_DISPLAY_MODE> modes;
@@ -247,8 +239,6 @@ vector<ALLEGRO_DISPLAY_MODE> getAvailableDisplayModes()
 	}
 	return modes;
 }
-
-} // namespace
 
 int MainLoop::initDisplay()
 {
@@ -415,7 +405,7 @@ void MainLoop::logEndTime(const string &stage)
 }
 #endif
 
-void MainLoop::pumpMessages()
+void MainLoop::pumpMessages(IApp *app)
 {
 	bool done = false;
 	bool need_redraw = true;
@@ -432,7 +422,8 @@ void MainLoop::pumpMessages()
 				t1 = Clock::now();
 				logStartTime ("Update");
 #endif
-				if (!app->update()) {
+				app->update();
+				if (app->isDone()) {
 					done = true;
 				}
 
@@ -538,12 +529,11 @@ void MainLoop::pumpMessages()
 	}
 }
 
-void MainLoop::run()
-{
+void MainLoop::run(IApp *app) {
 #ifdef USE_MONITORING
 	t0 = Clock::now();
 #endif
-	assert (app); // must have initialised engine by now.
+	assert (app); // must pass valid pointer.
 	if (smokeTest) return;
 
 	// Start the event queue to handle keyboard input and our timer
@@ -567,7 +557,7 @@ void MainLoop::run()
 	event.type = TWIST_START_EVENT;
 	app->handleEvent(event);
 
-	pumpMessages();
+	pumpMessages(app);
 
 	// cleanup
 	if (configFilename != nullptr)
@@ -581,8 +571,6 @@ void MainLoop::run()
 
 MainLoop::~MainLoop() {
 	// clear main components immediately
-	app = nullptr;
-
 	if (localAppData)
 		al_destroy_path(localAppData);
 

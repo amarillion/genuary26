@@ -1,4 +1,4 @@
-#include "simpleloop.h"
+#include "mainloop.h"
 #include <math.h>
 
 #include <allegro5/allegro_primitives.h>
@@ -6,7 +6,6 @@
 #include <cmath>
 
 using namespace std;
-using namespace Simple;
 
 double angle = (360 / 5) * (3.14159 / 180.0);
 double gravity = 0.2;
@@ -87,12 +86,9 @@ public:
 		sprites.push_back(sprite);
 	}
 
-	void handleEvent(ALLEGRO_EVENT &evt) override {
-	}
-
 	int frame = 0;
 
-	bool update() override {
+	void update() override {
 		if (frame++ % 60 == 0) {
 			addSprite();
 		}
@@ -106,8 +102,6 @@ public:
 
 		// clear out dead sprites
 		sprites.remove_if([](const Sprite &s) { return !s.alive; });
-
-		return true;
 	}
 
 	void draw(const GraphicsContext &gc) override {
@@ -121,20 +115,18 @@ public:
 
 int main(int argc, const char *const *argv)
 {
-	Simple::MainLoop mainloop = Simple::MainLoop();
-	auto engine = make_shared<App>();
-
+	MainLoop mainloop;
 	mainloop
 		.setFixedResolution(false)
 		.setUsagiMode()
 		.setTitle("Genuary26 Day 2")
 		.setAppName("Genuary26.2")
-		.setApp(engine);
+		.setPreferredDisplayResolution(1024, 768);
 
-	mainloop.setPreferredDisplayResolution(1024, 768);
-
-	mainloop.init(argc, argv);
-	engine->init();
-	mainloop.run();
+	if (!mainloop.init(argc, argv)) {
+		App app;
+		app.init();
+		mainloop.run(&app);
+	}
 	return 0;
 }

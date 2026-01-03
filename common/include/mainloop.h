@@ -29,24 +29,25 @@ typedef std::chrono::high_resolution_clock Clock;
  * the buffer bitmap width or the display width. Because the transformation applies, you'd draw
  * to the buffer as though it was sized 640x480.
  */
-#define MAIN_WIDTH Simple::MainLoop::getMainLoop()->getw()
+#define MAIN_WIDTH MainLoop::getMainLoop()->getw()
 
 /**
  * Equivalent of mainLoop->geth().
  * See MAIN_WIDTH
  */
-#define MAIN_HEIGHT Simple::MainLoop::getMainLoop()->geth()
+#define MAIN_HEIGHT MainLoop::getMainLoop()->geth()
 
-#define TICKS_FROM_MSEC(x) ((x) / Simple::MainLoop::getMainLoop()->getLogicIntervalMsec())
-#define MSEC_FROM_TICKS(x) ((x) * Simple::MainLoop::getMainLoop()->getLogicIntervalMsec())
-
-namespace Simple {
+#define TICKS_FROM_MSEC(x) ((x) / MainLoop::getMainLoop()->getLogicIntervalMsec())
+#define MSEC_FROM_TICKS(x) ((x) * MainLoop::getMainLoop()->getLogicIntervalMsec())
 
 class IApp {
 public:
-	virtual void handleEvent(ALLEGRO_EVENT &evt) = 0;
-	virtual bool update() = 0;
+	virtual void update() = 0;
 	virtual void draw(const GraphicsContext &gc) = 0;
+	virtual void handleEvent(ALLEGRO_EVENT &evt) {};
+	virtual bool isDone() {
+		return false;
+	}
 };
 
 class MainLoop final : public Component, public ITimer
@@ -58,7 +59,6 @@ private:
 	ALLEGRO_DISPLAY *display;
 
 	std::unique_ptr<Audio> _audio = nullptr;
-	std::shared_ptr<IApp> app;
 	
 	ALLEGRO_PATH *localAppData;
 	ALLEGRO_PATH *configPath;
@@ -132,7 +132,7 @@ protected:
 	ALLEGRO_CONFIG *config;
 	bool fpsOn;
 
-	void pumpMessages();
+	void pumpMessages(IApp *app);
 public:
 	bool isSmokeTest() { return smokeTest; }
 
@@ -157,8 +157,7 @@ public:
 	int getMsecCounter () { return al_get_timer_count(logicTimer) * logicIntervalMsec; }
 	void setFpsOn (bool value) { fpsOn = value; }
 
-	MainLoop (Component *_engine, const char *configFilename, const char *title, int _bufw = 640, int _bufh = 480);
-	MainLoop ();
+	MainLoop();
 
 	/**
 	 * indicate that the game is
@@ -182,7 +181,6 @@ public:
 	MainLoop &setTitle(const char *_title);
 	MainLoop &setAppName(const char *_appname);
 	MainLoop &setConfigFilename(const char *_configFilename);
-	MainLoop &setApp(const std::shared_ptr<IApp> &_app);
 	MainLoop &setLogicIntervalMsec (int value) { logicIntervalMsec = value; return *this; }
 	
 	// responsive, but scales screen at specific breakpoints. TODO: control breakpoints
@@ -204,7 +202,7 @@ public:
 	 * returns 0 on success, 1 on failure
 	 */
 	int init(int argc, const char *const *argv);
-	void run();	
+	void run(IApp *app);
 	virtual ~MainLoop();
 	
 	virtual void parseOpts(std::vector<std::string> &opts) {};
@@ -216,5 +214,3 @@ public:
 	Audio *audio() { return _audio.get(); }
 	static MainLoop *getMainLoop();
 };
-
-}; // Namespace Simple
