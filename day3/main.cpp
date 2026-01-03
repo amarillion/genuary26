@@ -21,8 +21,10 @@ class App : public IApp {
 public:
 
 	int frame = 0;
-	double scale = 250.0;
+	double scale = 500.0;
 	double scaleFactor;
+	double startAngle = 0.298;
+	double startRadius = 0.88;
 	int frames_per_quarter = 50;
 
 	void init() {
@@ -32,7 +34,6 @@ public:
 		font = al_create_builtin_font();
 
 		scaleFactor = pow(PHI, 1.0 / -frames_per_quarter);
-		printf("Scale factor: %f\n", scaleFactor);
 	}
 
 	void update() override {
@@ -51,13 +52,13 @@ public:
 		al_clear_to_color(al_map_rgb(0, 0, 0));
 		double ox = 0;
 		double oy = 0;
-		double angle = 0;
+		double angle;
 		bool first = true;
 		int two_rotations = frames_per_quarter * 8;
 		for (int i = max(0, frame - two_rotations); i < frame; ++i) {
 			double frac = (double)i / (double)frames_per_quarter;
-			double angle = frac * 0.5 * M_PI;
-			double radius = pow(PHI, frac);
+			double angle = frac * 0.5 * M_PI + startAngle;
+			double radius = pow(PHI, frac) * startRadius;
 			double x = radius * cos(angle);
 			double y = radius * sin(angle);
 			if (first) {
@@ -75,8 +76,8 @@ public:
 		int fibb = 2;
 		int dx = 0;
 		int dy = 1;
-		int xco = 1.1f;
-		int yco = PHI;
+		double xco = startRadius * cos(startAngle);
+		double yco = 1 + (startRadius * sin(startAngle));
 		int total = frame / frames_per_quarter;
 		for (int i = 0; i <= total; ++i) {
 			int size = fiba;
