@@ -2,7 +2,6 @@
 #include <math.h>
 
 #include <allegro5/allegro_primitives.h>
-#include <allegro5/allegro_font.h>
 
 #include <list>
 #include <cmath>
@@ -13,7 +12,6 @@ double angle = (360 / 5) * (3.14159 / 180.0);
 double gravity = 0.2;
 
 int w, h;
-ALLEGRO_FONT *font = nullptr;
 
 double PHI = sqrt(5.0f) / 2.0f + 0.5f; // golden ratio
 
@@ -31,7 +29,6 @@ public:
 		w = al_get_display_width(al_get_current_display());
 		h = al_get_display_height(al_get_current_display());
 		printf("Golden ratio: %f\n", PHI);
-		font = al_create_builtin_font();
 
 		scaleFactor = pow(PHI, 1.0 / -frames_per_quarter);
 	}
