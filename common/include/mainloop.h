@@ -1,14 +1,14 @@
 #pragma once
 
 #include <allegro5/allegro.h>
-#include "component.h"
 #include "audio.h"
-#include "timer.h"
 
 #include <string>
 #include <vector>
 #include <map>
+#include <memory>
 #include "point.h"
+#include "graphicscontext.h"
 
 #define TWIST_START_EVENT 1024    /* value for event.type - originally in widget.h */
 
@@ -50,9 +50,12 @@ public:
 	}
 };
 
-class MainLoop final : public Component, public ITimer
+class MainLoop final
 {
 private:
+	int w = 0;
+	int h = 0;
+
 	ALLEGRO_BITMAP *buffer;
 	ALLEGRO_EVENT_QUEUE *equeue;
 	ALLEGRO_TIMER *logicTimer;
@@ -213,4 +216,7 @@ public:
 
 	Audio *audio() { return _audio.get(); }
 	static MainLoop *getMainLoop();
+
+	int getw() { return w; }
+	int geth() { return h; }
 };

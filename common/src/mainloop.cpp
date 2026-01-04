@@ -8,7 +8,6 @@
 #include <allegro5/allegro_acodec.h>
 #include <allegro5/allegro_ttf.h>
 #include <allegro5/allegro_primitives.h>
-#include "textstyle.h"
 
 #include <iostream>
 
@@ -426,8 +425,6 @@ void MainLoop::pumpMessages(IApp *app)
 				if (app->isDone()) {
 					done = true;
 				}
-
-				counter++;
 #ifdef USE_MONITORING
 				logEndTime ("Update");
 #endif
@@ -446,7 +443,7 @@ void MainLoop::pumpMessages(IApp *app)
 				al_acknowledge_resize(event.display.source);
 				w = al_get_display_width(event.display.source);
 				h = al_get_display_height(event.display.source);
-				UpdateSize();
+				// UpdateSize();
 				need_redraw = true;
 				break;
 			}
@@ -506,12 +503,6 @@ void MainLoop::pumpMessages(IApp *app)
 				frame_counter = msecCounter;
 			}
 			frame_count++;
-
-	        if (fpsOn && getFont())
-			{
-				draw_textf_with_background(getFont(), WHITE, BLACK, 0, 0,
-					  ALLEGRO_ALIGN_LEFT, "fps: %d msec: %07d ", last_fps, msecCounter);
-			}
 
 	        if (stretch)
 	        {
@@ -609,7 +600,7 @@ void MainLoop::toggleWindowed()
 	// convert back to video bitmaps
 	al_convert_memory_bitmaps();
 
-	UpdateSize();
+	// UpdateSize();
 }
 
 MainLoop &MainLoop::setFixedResolution (bool fixed)
