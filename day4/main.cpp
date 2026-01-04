@@ -55,10 +55,8 @@ public:
 		al_clear_to_color(bg);
 	}
 
-	int frame = 0;
 
 	void update() override {
-		frame++;
 	}
 
 	void currentLine(int frame, function<void(int, int, int, int)> cb) {
@@ -85,11 +83,11 @@ public:
 		}
 	}
 
+	int frame = 0;
 	bool first = true;
-	int frameSkip = 2;
 
 	void draw(const GraphicsContext &gc) override {
-		
+		frame++;
 		al_set_target_bitmap(buf);
 		if (first) {
 			// randomize bg / fg
@@ -105,32 +103,28 @@ public:
 			first = false;
 		}
 
-		if ((frame / frameSkip) > 720) {
+		if (frame > 720) {
 			first = true;
 			frame = 0;
 		}
 
-		if (frame % frameSkip == 0) {
+		// auto draw_bresenham = [&](int x0, int y0, int x1, int y1, ALLEGRO_COLOR color) {
+		// 	do_bresenham(x0, y0, x1, y1, [&](int x, int y) {
+		// 		al_put_pixel(x, y, color);
+		// 	});
+		// };
 
-			// auto draw_bresenham = [&](int x0, int y0, int x1, int y1, ALLEGRO_COLOR color) {
-			// 	do_bresenham(x0, y0, x1, y1, [&](int x, int y) {
-			// 		al_put_pixel(x, y, color);
-			// 	});
-			// };
-
-			auto xor_bresenham = [&](int x0, int y0, int x1, int y1) {
-				do_bresenham(x0, y0, x1, y1, [&](int x, int y) {
-					ALLEGRO_COLOR existing = al_get_pixel(gc.buffer, x, y);
-					bool equal = (existing.r == fg.r && existing.g == fg.g && existing.b == fg.b);
-					al_put_pixel(x, y, equal ? bg : fg);
-				});
-			};
-
-			currentLine((frame / frameSkip) % 360, [&](int cx, int cy, int x1, int y1) {
-				xor_bresenham(cx, cy, x1, y1);
+		auto xor_bresenham = [&](int x0, int y0, int x1, int y1) {
+			do_bresenham(x0, y0, x1, y1, [&](int x, int y) {
+				ALLEGRO_COLOR existing = al_get_pixel(gc.buffer, x, y);
+				bool equal = (existing.r == fg.r && existing.g == fg.g && existing.b == fg.b);
+				al_put_pixel(x, y, equal ? bg : fg);
 			});
+		};
 
-		}
+		currentLine(frame % 360, [&](int cx, int cy, int x1, int y1) {
+			xor_bresenham(cx, cy, x1, y1);
+		});
 
 		al_set_target_bitmap(gc.buffer);
 		al_draw_bitmap(buf, 0, 0, 0);
@@ -146,6 +140,7 @@ int main(int argc, const char *const *argv)
 	mainloop
 		.setTitle("Genuary26 Day 4")
 		.setAppName("Genuary26.4")
+		.setLogicIntervalMsec(33) // ~30 fps
 		.setPreferredGameResolution(256, 192)
 		.setPreferredDisplayResolution(1024, 768);
 
