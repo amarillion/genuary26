@@ -4,7 +4,7 @@
 
 # rm -r build/DEBUG_EMSCRIPTEN/
 ./make-emscripten-buildenv.sh
-cp index.html build/DEBUG_EMSCRIPTEN/
+cp index/*.* build/DEBUG_EMSCRIPTEN/
 
 # test using `http-server build/DEBUG_EMSCRIPTEN/`
 #  open http://localhost:8080/`

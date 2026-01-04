@@ -1,0 +1,21 @@
+.gallery {
+	display: flex;
+	flex-flow: row wrap;
+}
+.gallery > div {
+	padding: 8px;
+	list-style-type: none;
+	border: 1px solid darkgray;
+}
+img {
+	display: block;
+	width: 384px;
+	height: auto;
+}
+a {
+	text-decoration: none;
+	font-weight: bold;
+}
+a:hover {
+	text-decoration: underline;
+}
