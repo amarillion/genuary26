@@ -1,10 +1,10 @@
 #by Martijn van Iersel (amarillion@yahoo.com)
 
-# BUILD=DEBUG
+BUILD=DEBUG
 # BUILD=RELEASE
 
 # TARGET=EMSCRIPTEN
-# TARGET=LINUX
+TARGET=LINUX
 
 CCFLAGS = -std=c++20 -Icommon/include
 CFLAGS = -W -Wall -Wno-unused -DUSE_MOUSE
@@ -58,7 +58,7 @@ DAYS := $(notdir $(wildcard day*))
 # TARGETS     += $(BUILDDIR)/$1/$1$(BINSUF)
 TARGETS := $(patsubst %,$(BUILDDIR)/%$(BINSUF),$(DAYS))
 
-.PHONY: all clean
+.PHONY: all clean serve
 all: $(TARGETS)
 
 # Per-day sources / objects
@@ -115,5 +115,9 @@ $(COMMON_OBJS): $(OBJDIR)/%.o: common/src/%.cpp
 
 clean:
 	rm -r $(BUILDDIR)
+
+serve:
+# Remember to use -c-1 flag to disable caching. 
+	http-server -c-1 build/DEBUG_EMSCRIPTEN
 
 print-%  : ; @echo $* = $($*)

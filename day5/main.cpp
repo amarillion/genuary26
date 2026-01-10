@@ -136,7 +136,7 @@ int main(int argc, const char *const *argv)
 		.setTitle("Genuary26 Day 5")
 		.setAppName("Genuary26.5")
 		.setLogicIntervalMsec(200)
-		.setPreferredDisplayResolution(1024, 768);
+		.setPreferredGameResolution(1024, 768);
 
 	if (!mainloop.init(argc, argv)) {
 		App app;
