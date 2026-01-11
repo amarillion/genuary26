@@ -6,6 +6,7 @@
 
 #include <list>
 #include <cmath>
+#include "pixelbuffer.h"
 
 using namespace std;
 
@@ -34,30 +35,9 @@ ALLEGRO_COLOR ZX_PALETTE[8] {
 	al_map_rgb(255, 255, 255),
 };
 
-class App : public IApp {
-public:
-
-	ALLEGRO_BITMAP *buf;
-
+class Day5 : public IComponent {
 	ALLEGRO_COLOR bg = al_map_rgb(0, 0, 255);
 	ALLEGRO_COLOR fg = al_map_rgb(255, 255, 0);
-
-	int w, h;
-
-	void init() {
-		w = MainLoop::getMainLoop()->getw();
-		h = MainLoop::getMainLoop()->geth();
-
-		// due to frequent use of GET_PIXEL, we need a memory buffer.
-		al_set_new_bitmap_flags(ALLEGRO_MEMORY_BITMAP);
-		buf = al_create_bitmap(256, 192);
-		al_set_target_bitmap(buf);
-		al_clear_to_color(bg);
-	}
-
-
-	void update() override {
-	}
 
 	void currentLine(int frame, function<void(int, int, int, int)> cb) {
 		int step = 2;
@@ -86,9 +66,9 @@ public:
 	int frame = 0;
 	bool first = true;
 
+public:
 	void draw(const GraphicsContext &gc) override {
 		frame++;
-		al_set_target_bitmap(buf);
 		if (first) {
 			// randomize bg / fg
 			int bgIndex = rand() % 8;
@@ -125,12 +105,41 @@ public:
 		currentLine(frame % 360, [&](int cx, int cy, int x1, int y1) {
 			xor_bresenham(cx, cy, x1, y1);
 		});
-
-		al_set_target_bitmap(gc.buffer);
-		al_draw_bitmap(buf, 0, 0, 0);
 	}
 
-	virtual ~App() {}
+	virtual ~Day5() {}
+};
+
+
+class App : public IApp {
+public:
+
+	shared_ptr<PixelBuffer> pixelBuffer = nullptr;
+	shared_ptr<Day5> day5 = nullptr;
+
+	int w, h;
+
+	void init() {
+		day5 = make_shared<Day5>();
+		pixelBuffer = make_shared<PixelBuffer>(day5, 256, 192);
+		// w = MainLoop::getMainLoop()->getw();
+		// h = MainLoop::getMainLoop()->geth();
+
+		// due to frequent use of GET_PIXEL, we need a memory buffer.
+		// al_set_new_bitmap_flags(ALLEGRO_MEMORY_BITMAP);
+		// buf = al_create_bitmap(256, 192);
+		// al_set_target_bitmap(buf);
+		// al_clear_to_color(bg);
+	}
+
+	virtual void update() override {}
+
+	virtual void draw(const GraphicsContext &gc) override { 
+		pixelBuffer->draw(gc);
+	}
+
+	virtual ~App() {
+	}
 };
 
 int main(int argc, const char *const *argv)
@@ -140,9 +149,9 @@ int main(int argc, const char *const *argv)
 	mainloop
 		.setTitle("Genuary26 Day 4")
 		.setAppName("Genuary26.4")
-		.setLogicIntervalMsec(33) // ~30 fps
-		.setPreferredGameResolution(256, 192)
-		.setPreferredDisplayResolution(1024, 768);
+		.setLogicIntervalMsec(17) // ~60fpx
+		// .setLogicIntervalMsec(33) // ~30 fps
+		.setPreferredDisplaySize(1024, 768);
 
 	if (!mainloop.init(argc, argv)) {
 		App app;

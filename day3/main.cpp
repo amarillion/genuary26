@@ -111,11 +111,9 @@ int main(int argc, const char *const *argv)
 	MainLoop mainloop;
 
 	mainloop
-		.setFixedResolution(false)
-		.setUsagiMode()
 		.setTitle("Genuary26 Day 3")
 		.setAppName("Genuary26.3")
-		.setPreferredDisplayResolution(1024, 768);
+		.setPreferredDisplaySize(1024, 768);
 
 	if (!mainloop.init(argc, argv)) {
 		App app;

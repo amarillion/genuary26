@@ -42,14 +42,12 @@ MainLoop::MainLoop() :
 		buffer(nullptr), equeue(nullptr), logicTimer(nullptr), display(nullptr),
 		localAppData(nullptr), configPath(nullptr),
 		configFilename("twist.cfg"), title("untitled"), appname(nullptr),
-		prefGameSize(Point(640, 480)), prefDisplaySize(Point(-1, -1)), stretch (false), smokeTest(false), logicIntervalMsec(20),
+		prefDisplaySize(Point(640, 480)), smokeTest(false), logicIntervalMsec(20),
 #ifdef USE_MONITORING
 		t0(), t1(), sums(), counts(),
 #endif
 		config(nullptr)
 {
-	w = 640;
-	h = 480;
 	buffer = nullptr;
 	last_fps = 0;
 	lastUpdateMsec = 0;
@@ -264,11 +262,6 @@ int MainLoop::initDisplay()
 	}
 	al_set_new_display_flags(display_flags);
 
-	// if prefDisplaySize isn't set explicitly, use game size.
-	if (prefDisplaySize.x() < 0) {
-		prefDisplaySize = prefGameSize;
-	}
-
 	// for allegro fullscreen, try the resolutions available on the system one by one
 	if (screenMode == FULLSCREEN)
 	{
@@ -304,65 +297,14 @@ int MainLoop::initDisplay()
 		return 0;
 	}
 
-	// determine if we need to create a stretching bitmap
-	if (usagiMode) {
-		int dw = al_get_display_width(display);
-		int dh = al_get_display_height(display);
 
-		// buffer must be a neat factor of display size,
-		// where height must between 440 and 640 or larger.
-		if (dh < 960) { /* ..959 */
-			w = dw;
-			h = dh;
-			stretch = false;
-		}
-		else if (dh < 1280) { /* 960..1279 */
-			w = dw / 2;
-			h = dh / 2;
-			stretch = true;
-		}
-		else if (dh <= 1760) { /* 1280..1760 */
-			w = dw / 3;
-			h = dh / 3;
-			stretch = true;
-		}
-		else {
-			w = dw / 4;
-			h = dh / 4;
-			stretch = true;
-		}
-	}
-	else if (useFixedResolution)
-	{
-		if (al_get_display_width(display) != prefGameSize.x() || al_get_display_height(display) != prefGameSize.y())
-			stretch = true;
-		// set preferred size, but do not trigger UpdateSize() event yet.
-		w = prefGameSize.x();
-		h = prefGameSize.y();
-	}
-	else
-	{
-		// set w, h equal to the actual display dimension
-		// but do not trigger UpdateSize() event yet.
-		w = al_get_display_width(display);
-		h = al_get_display_height(display);
-	}
+	// set w, h equal to the actual display dimension
+	w = al_get_display_width(display);
+	h = al_get_display_height(display);
 
 	al_set_target_backbuffer(display);
 
-	buffer = nullptr;
-
-	// use the first resolution as the primary game resolution.
-	// not necessarily the same size as the actual game resolution
-	if (stretch)
-	{
-		buffer = al_create_bitmap(w, h);
-	}
-
-	if (!buffer)
-	{
-		buffer = al_get_backbuffer(display);
-	}
+	buffer = al_get_backbuffer(display);
 
 	if (!buffer)
 	{
@@ -443,25 +385,17 @@ void MainLoop::pumpMessages(IApp *app)
 				al_acknowledge_resize(event.display.source);
 				w = al_get_display_width(event.display.source);
 				h = al_get_display_height(event.display.source);
-				// UpdateSize();
+				app->handleEvent(event);				
 				need_redraw = true;
 				break;
 			}
 			case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
 			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-			case ALLEGRO_EVENT_MOUSE_AXES: {
-				adjustMickey(event.mouse.x, event.mouse.y);
-				app->handleEvent (event);
-				break;
-			}
+			case ALLEGRO_EVENT_MOUSE_AXES:
 			case ALLEGRO_EVENT_TOUCH_BEGIN:
 			case ALLEGRO_EVENT_TOUCH_END:
 			case ALLEGRO_EVENT_TOUCH_MOVE:
-			case ALLEGRO_EVENT_TOUCH_CANCEL: {
-				adjustMickey(event.touch.x, event.touch.y); //TODO: cast needed?
-				app->handleEvent (event);
-				break;
-			}
+			case ALLEGRO_EVENT_TOUCH_CANCEL:
 			case ALLEGRO_EVENT_KEY_UP:
 			case ALLEGRO_EVENT_KEY_DOWN:
 				app->handleEvent (event);
@@ -503,13 +437,6 @@ void MainLoop::pumpMessages(IApp *app)
 				frame_counter = msecCounter;
 			}
 			frame_count++;
-
-	        if (stretch)
-	        {
-	    		// I tried using ALLEGRO_TRANSFORM instead of a separate buffer and using al_stretch_blit. But it's actually a lot slower.
- 	        	al_set_target_bitmap (al_get_backbuffer(display));
-	        	al_draw_scaled_bitmap(buffer, 0, 0, w, h, 0, 0, al_get_display_width(display), al_get_display_height(display), 0);
-	        }
 
 			al_flip_display();
 
@@ -599,14 +526,6 @@ void MainLoop::toggleWindowed()
 	
 	// convert back to video bitmaps
 	al_convert_memory_bitmaps();
-
-	// UpdateSize();
-}
-
-MainLoop &MainLoop::setFixedResolution (bool fixed)
-{
-	useFixedResolution = fixed;
-	return *this;
 }
 
 //TODO

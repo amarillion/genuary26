@@ -78,34 +78,8 @@ private:
 	enum ScreenMode { WINDOWED = 0, FULLSCREEN_WINDOW, FULLSCREEN };
 	ScreenMode screenMode;
 
-	/**
-	 * If resolution == fixed, this will be the backbuffer size.
-	 * otherwise, this will be only used in windowed mode to determine the default window size.
-	 */
-	Point prefGameSize;
-
-	/**
-	 * This will be the default display size
-	 * Usually equal to prefGameSize.
-	 */
+	/** Default display size, in situations where there is a choice */
 	Point prefDisplaySize;
-
-	// indicates whether buffer size is different from display size
-	bool stretch;
-
-	// If useFixedResolution is on, the buffer will be the same size as w, h.
-	// if useFixedResolution is off, the buffer can be any size, but w, h will be used as the default window size if there is that flexibility.
-	// this could also be described as responsive mode.
-	bool useFixedResolution = true;
-
-	// quick hack for usagi.
-	// usagi means a responsive resolution with a hardcoded set of breakpoints where game scale is increased
-	bool usagiMode = false;
-/*
- //TODO - implement this with letterboxing
-	bool useFixedAspectRatio = false;
-	Point fixedAspectRatio;
- */
 
 	// in smoke test mode: don't create display, just test loading resources.
 	// smokeTest is in headless mode.
@@ -142,16 +116,6 @@ public:
 	// randomly generated id used to identify recurring user
 	std::string getUserId();
 
-	template <typename V>
-	void adjustMickey(V &x, V &y)
-	{
-		if (stretch)
-		{
-			x = x * w / al_get_display_width(display);
-			y = y * h / al_get_display_height(display);
-		}
-	}
-
 	/** return vector of unhandled command-line arguments */
 	std::vector<std::string> &getOpts() { return options; }
 
@@ -162,37 +126,13 @@ public:
 
 	MainLoop();
 
-	/**
-	 * indicate that the game is
-	 *
-	 * a. designed for a certain fixed resolution,
-	 * OR
-	 * b. adapts to any resolution it's given
-	 *
-	 * In case a), a fixed size buffer will be created and stretched / transformed to match the actual display resolution.
-	 *      (possibly letterboxing may be used to maintain aspect ratio depending on the setFixedAspectRatio setting)
-	 *
-	 * In case b), game routines are expected to handle a variety of resolutions dynamically.
-	 *      w, h are used for the default window size size in windowed mode.
-	 *
-	 */
-	MainLoop &setFixedResolution (bool fixed);
-
-	//TODO: not yet implemented
-//	MainLoop &setFixedAspectRatio (bool fixed, int x = 4, int y = 3);
-
 	MainLoop &setTitle(const char *_title);
 	MainLoop &setAppName(const char *_appname);
 	MainLoop &setConfigFilename(const char *_configFilename);
 	MainLoop &setLogicIntervalMsec (int value) { logicIntervalMsec = value; return *this; }
 	
-	// responsive, but scales screen at specific breakpoints. TODO: control breakpoints
-	MainLoop &setUsagiMode() { usagiMode = true; return *this; }
-
-	MainLoop &setPreferredGameResolution (int w, int h) { prefGameSize = Point(w, h); return *this; }
-
-	/** Can be used to scale up the display for really low resolutions. if this isn't set, game resolution is used */
-	MainLoop &setPreferredDisplayResolution (int w, int h) { prefDisplaySize = Point(w, h); return *this; }
+	/** Try to make a display of this size (might not be respected e.g. in full screen mode) */
+	MainLoop &setPreferredDisplaySize (int w, int h) { prefDisplaySize = Point(w, h); return *this; }
 
 	MainLoop &setResizableWindow (bool value) { isResizableWindow = value; return *this; }
 
