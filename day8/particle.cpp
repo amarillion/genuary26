@@ -1,7 +1,5 @@
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_primitives.h>
-#include <allegro5/allegro_font.h>
-#include <allegro5/allegro_ttf.h>
 
 #include <cmath>
 #include <cstdlib>
@@ -58,7 +56,9 @@ double angle_wave = 0.0;
 ALLEGRO_BITMAP* background = nullptr;
 ALLEGRO_BITMAP* skyline = nullptr;
 ALLEGRO_BITMAP* mirror = nullptr;
-ALLEGRO_FONT* font = nullptr;
+
+ALLEGRO_COLOR building_color = al_map_rgb(28, 28, 28);
+ALLEGRO_COLOR window_color = al_map_rgb(127, 127, 0);
 
 bool show_fps = false;
 bool do_vsync = false;
@@ -177,8 +177,19 @@ void draw_particles() {
 	}
 }
 
-void create_background() {
+void init_bitmaps() {
 	background = al_create_bitmap(SCREEN_W, HORIZON);
+	mirror = al_create_bitmap(SCREEN_W, SCREEN_H - HORIZON);
+	skyline = al_create_bitmap(SCREEN_W, SKYLINE_MAX_HEIGHT);
+}
+
+void destroy_bitmaps() {
+	al_destroy_bitmap(background);
+	al_destroy_bitmap(mirror);
+	al_destroy_bitmap(skyline);
+}
+
+void draw_background() {
 	al_set_target_bitmap(background);
 
 	ALLEGRO_COLOR sky_base = al_map_rgb( 60, 60, 255 ); 
@@ -207,44 +218,30 @@ void create_background() {
 		ALLEGRO_COLOR star_color = al_map_rgb(star_gray, star_gray, star_gray);
 		al_draw_pixel(rand() % SCREEN_W, rand() % HORIZON, star_color);
 	}
+}
 
-	mirror = al_create_bitmap(SCREEN_W, SCREEN_H - HORIZON);
-	skyline = al_create_bitmap(SCREEN_W, SKYLINE_MAX_HEIGHT);
+void draw_skyline() {
 	al_set_target_bitmap(skyline);
 	al_clear_to_color(TRANSPARENT);
 
-	ALLEGRO_COLOR building_color = al_map_rgb(28, 28, 28);
-	ALLEGRO_COLOR window_color = al_map_rgb(127, 127, 0);
-
 	for (int x = 0; x < SCREEN_W; x += 15) {
-		// int h = rand() % 50 + 5;
-		// draw skyscrapers
-		// for (int y = SKYLINE_MAX_HEIGHT - h; y < SKYLINE_MAX_HEIGHT; y += 5) {
-		// 	al_draw_filled_rectangle(x, y, x + 15, y + 5,
-		// 		al_map_rgb(50, 50, 50));
-
-			
-		// }
-
 		int h = rand () % 50 + 5; // must be smaller than background_max_height
 		int step = rand () % 3 + 2;
-		for (int j = SKYLINE_MAX_HEIGHT - h;
-			j < SKYLINE_MAX_HEIGHT; j += step)
-		{
+		for (int y = SKYLINE_MAX_HEIGHT - h; y < SKYLINE_MAX_HEIGHT; y += step) {
 			// draw the building
-			al_draw_filled_rectangle (x, j, x + 15, j + 5, building_color);
+			al_draw_filled_rectangle (x, y, x + 15, y + 5, building_color);
+			
 			// and some windows
-			if (rand() % 100 > 50)
-				al_draw_filled_rectangle(x + 2, j + 1, x + 5, j + 2, window_color);
-			if (rand() % 100 > 50)
-				al_draw_filled_rectangle(x + 6, j + 1, x + 9, j + 2, window_color);
-			if (rand() % 100 > 50)
-				al_draw_filled_rectangle(x + 10, j + 1, x + 13, j + 2, window_color);
+			for (int dx = 0; dx < 15; dx += 4) {
+				if (rand() % 100 > 50) {
+					al_draw_filled_rectangle(x + dx + 2, y + 1, x + dx + 5, y + 2, window_color);
+				}
+			}
 		}
-
 	}
 
-	al_set_target_backbuffer(al_get_current_display());
+	// TODO: line below messes things up in emscripten!
+	// al_set_target_backbuffer(al_get_current_display());
 }
 
 void move_fireworks() {
@@ -278,7 +275,13 @@ class Fireworks : public IComponent {
 public:
 	Fireworks() {
 		init_particles();
-		create_background();
+		init_bitmaps();
+		draw_background();
+		draw_skyline();
+	}
+
+	virtual ~Fireworks() {
+		destroy_bitmaps();
 	}
 
 	void draw(const GraphicsContext &gc) override {

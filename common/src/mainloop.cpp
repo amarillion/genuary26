@@ -528,15 +528,6 @@ void MainLoop::toggleWindowed()
 	al_convert_memory_bitmaps();
 }
 
-//TODO
-/*
-MainLoop &MainLoop::setFixedAspectRatio (bool fixed, int x, int y)
-{
-	useFixedAspectRatio = fixed;
-	fixedAspectRatio = Point(x, y);
-}
-*/
-
 string MainLoop::getUserId() {
 	assert(config);
 	const char *value = al_get_config_value (config, "twist", "userid");	
