@@ -5,6 +5,7 @@
 #include "color.h"
 
 #include <list>
+#include "map2d.h"
 
 using namespace std;
 
@@ -65,7 +66,7 @@ public:
 	vector<Square> squares;
 	vector<Square> placed;
 	
-	// Map2D<bool> grid { 45, 45, false };
+	Map2D<bool> grid { 45, 45, false };
 
 	void init() {
 		srand(time(0));
@@ -119,8 +120,16 @@ public:
 
 	vector<vector<Square>> unused;
 
-	void setGrid(const Square &sq, bool value) {
+	void setGrid(const Square &sq, bool value = true) {
+		for (int x = 0; x < sq.msize; ++x) {
+			for (int y = 0; y < sq.msize; ++y) {
+				grid(x + sq.mx, y + sq.my) = value;
+			}
+		}
+	}
 
+	void clearGrid(const Square &sq) {
+		setGrid(sq, false);
 	}
 	
 	// recursive descent approach
@@ -129,7 +138,7 @@ public:
 		// TODO:
 		// check for existence of 2x1 gaps and discard...
 
-		for (int i = 0; i < 250; ++i) {
+		for (int i = 0; i < 2000; ++i) {
 			if (placed.size() == squares.size()) { return; } // DONE! 
 			
 			// pop top from unused.
@@ -137,6 +146,7 @@ public:
 
 			auto &top_row = unused.back();
 			if (top_row.size() == 0) {
+				clearGrid(placed.back());
 				placed.pop_back();
 				unused.pop_back();
 			} 
@@ -146,9 +156,11 @@ public:
 				top_row.pop_back();
 
 				int mx, my;
-				scanEmpty(placed, next.msize, mx, my);
+				scanEmpty2(grid, next.msize, mx, my);
+				// scanEmpty(placed, next.msize, mx, my);
 
 				if (mx < 0 || my < 0) {
+					clearGrid(placed.back());
 					placed.pop_back();
 					unused.pop_back();
 				}
@@ -157,11 +169,60 @@ public:
 					next.mx = mx;
 					next.my = my;
 					placed.push_back(next);
+					setGrid(next);
 				}
 			}
 		}
 	}
 
+	bool isGridEmptyAt(const Map2D<bool> &grid, int size, int x, int y) {
+		bool isEmpty = true;
+		// scan top-left corner first
+		if (grid.get(x, y)) {
+			return false;
+		}
+		// if square of one, we're already done.
+		if (size == 1) {
+			return true;
+		}
+		// scan other three corners
+		if (grid.get(x + size - 1, y + size - 1)) {
+			return false;
+		}
+		if (grid.get(x, y + size - 1)) {
+			return false;
+		}
+		if (grid.get(x + size - 1, y)) {
+			return false;
+		}
+		// scan remaining points to be sure.
+		for (int xx = 0; xx < size; ++xx) {
+			for (int yy = 0; yy < size; ++yy) {
+				if (grid.get(x + xx, y + yy)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	/* scan based on up-to-date grid, should be faster */
+	void scanEmpty2(const Map2D<bool> &grid, int size, int &rx, int &ry) {
+		for (int x = 0; x < (ROOT - size); ++x) {
+			for (int y = 0; y < (ROOT - size); ++y) {
+				bool isEmpty = isGridEmptyAt(grid, size, x, y);
+				if (isEmpty) {
+					rx = x;
+					ry = y;
+					return;
+				}
+			}
+		}
+		rx = -1;
+		ry = -1;
+	}
+
+	/* scan based on linear scan of placed rectangles */
 	void scanEmpty(const vector<Square> &placed, int size, int &rx, int &ry) {
 		Square temp;
 		temp.msize = size;
@@ -187,81 +248,6 @@ public:
 		ry = -1;
 	}
 
-	void update2() {
-		// check if current is overlapping
-		
-		// find an overlapping pair
-		bool found = false;
-		for (int i = 0; i < squares.size(); ++i) {
-			
-			for (int j = 0; j < squares.size(); ++j) {
-				if (j == current) continue;
-				if (squares[j].overlaps(squares[current])) {
-					found = true;
-					break;
-				}
-			}
-
-			if (found) {
-				break;
-			}
-			current = (current + 1) % squares.size();
-		}
-
-		if (!found) {
-			// solved!
-			return;
-		}
-
-		found = false;
-		int rx = squares[current].mx;
-		int ry = squares[current].my;
-		
-		int bestx = 0;
-		int besty = 0;
-		int minOverlap = 2000000000;
-		// find an empty space for i one of the two
-		for (int x = 0; x < (ROOT - squares[current].msize); ++x) {
-			for (int y = 0; y < (ROOT - squares[current].msize); ++y) {
-				squares[current].mx = x;
-				squares[current].my = y;
-				int totalOverlap = 0;
-				for (int j = 0; j < squares.size(); ++j) {
-					if (current == j) continue;
-					totalOverlap += squares[current].overlapSize(squares[j]);
-				}
-				if (totalOverlap < minOverlap) {
-					minOverlap = totalOverlap;
-					bestx = x;
-					besty = y;
-				}
-				// if (totalOverlap = 0) {
-				// 	found = true;
-				// 	break;
-				// }
-			}
-			// if (found) { break; }
-		}
-
-		squares[current].mx = bestx;
-		squares[current].my = besty;
-
-		if (bestx == rx && besty == ry) {
-			// if space can't be found, make space by relocating other squares to random positions.
-			for (int j = 0; j < squares.size(); ++j) {
-				if (j == current) continue;
-				if (squares[j].overlaps(squares[current])) {
-					squares[j].mx = randomInt(ROOT - squares[j].msize);
-					squares[j].my = randomInt(ROOT - squares[j].msize);
-					break;
-				}
-			}
-		}
-		
-		// advance
-		current = (current + 1) % squares.size();
-	}
-
 	void draw(const GraphicsContext &gc) override {
 		al_clear_to_color(LIGHT_GREY);
 		for (const auto &sq : placed) {
@@ -271,6 +257,20 @@ public:
 				SQUARE_COLORS[sq.msize - 1]
 			);
 		}
+
+		// draw grid...
+		for (int x = 0; x < ROOT; ++x) {
+			for (int y = 0; y < ROOT; ++y) {
+				if (grid.get(x, y)) {
+					al_draw_filled_rectangle(
+						MARGINX + x * SCALE, MARGINY + y * SCALE,
+						MARGINX + x * SCALE + 4, MARGINY + y * SCALE + 4,
+						BLACK
+					);
+				}
+			}
+		}
+
 	}
 
 	virtual ~App() {}
@@ -283,7 +283,7 @@ int main(int argc, const char *const *argv)
 	mainloop
 		.setTitle("Genuary26 Day 14")
 		.setAppName("Genuary26.14")
-		.setLogicIntervalMsec(50)
+		.setLogicIntervalMsec(20)
 		.setPreferredDisplaySize(1280, 800);
 
 	if (!mainloop.init(argc, argv)) {
