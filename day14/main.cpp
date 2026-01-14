@@ -54,9 +54,49 @@ constexpr int BASE = 9;
 
 constexpr int SCREEN_W = 1280;
 constexpr int SCREEN_H = 800;
-constexpr int SCALE = SCREEN_H / 45;
+constexpr int SCALE = SCREEN_H / ROOT;
 constexpr int MARGINX = (SCREEN_W - (SCALE * ROOT)) / 2;
 constexpr int MARGINY = (SCREEN_H - (SCALE * ROOT)) / 2;
+
+// ordered first from top to bottom, then from left to right:
+vector<int> solution {
+	8, 5, 7, 7, 9, 9,
+	3, 2,
+	1, 7, 8,
+	6, 6, 9, 9,
+	5, 5, 9,
+	8, 9, 9,
+	6, 4,
+	7, 6, 4, 4,
+	6,
+	2, 7, 8, 9,
+	8, 
+	7,
+	6, 
+	3, 4,
+	3, 5,
+	9,
+	8, 8, 8,
+	7, 
+	5,
+};
+
+// starting from a partial solution to give the simulation a chance to reach the end
+vector<int> solution_almost {
+	8, 5, 7, 7, 9, 9,
+	3, 2,
+	1, 7, 8,
+	6, 6, 9, 9,
+	5, 5, 9,
+	8, 9, 9,
+	6, 4,
+	7, 6, 4, 4,
+	6,
+	2, 7, 8, 9,
+	8,
+	7,
+	3, 3, 4, 5, 5, 6, 7, 8, 8, 8, 9
+};
 
 ALLEGRO_COLOR SQUARE_COLORS[BASE];
 
@@ -74,10 +114,10 @@ public:
 		srand(time(0));
 
 		// init palette
-		int hue_start = randomInt(360);
+		int hue_start = 270;
 		int hue_delta = 360 / BASE;
-		float s = randomFloat(0.5) + 0.5;
-		float v = randomFloat(0.5) + 0.5;
+		float s = 0.6;
+		float v = 0.9;
 		for (int i = 0; i <= BASE; ++i) {
 			ALLEGRO_COLOR col = al_color_hsv(
 				((i * hue_delta) + hue_start) % 360, s, v 
@@ -93,8 +133,9 @@ public:
 			}
 		}
 
-		shuffle();
-		
+		// shuffle();
+		squares = solution_almost;
+
 		remain = squares;
 		nextRow();
 	}
@@ -116,6 +157,9 @@ public:
 		// 	printf("%i,", i);
 		// }
 		// printf("\n");
+
+		// because we pop from the back, to presever order we need to reverse here.
+		reverse(new_row.begin(), new_row.end());
 		unused.push_back(new_row);
 	}
 
@@ -137,29 +181,6 @@ public:
 		setGrid(sq, false);
 	}
 	
-	bool isHGap(int x, int y) {
-		return (!grid.get(x, y)) && grid.get(x - 1, y) && grid.get(x + 1, y);
-	}
-	bool isVGap(int x, int y) {
-		return (!grid.get(x, y)) && grid.get(x, y - 1) && grid.get(x, y + 1);
-	}
-
-	bool hasGaps() {
-		for (int x = 1; x < ROOT - 1; ++x) {
-			for (int y = 1; y < ROOT - 1; ++y) {
-				if (!grid.get(x, y)) {
-					if (isHGap(x, y) && (isHGap(x, y - 1) || isHGap(x, y + 1))) {
-						return true;
-					}
-					if (isVGap(x, y) && (isVGap(x + 1, y) || isVGap(x - 1, y))) {
-						return true;
-					}
-				}
-			}
-		}
-		return false;
-	}
-
 	void removeFirst(vector<int> &vec, int needle) {
 		auto it = find(vec.begin(), vec.end(), needle);
 		assert(it != vec.end());
@@ -169,17 +190,9 @@ public:
 	// recursive descent approach
 	void update() override {
 		
-		for (int i = 0; i < 2000; ++i) {
+		// for (int i = 0; i < 100; ++i) {
 			if (placed.size() == squares.size()) { return; } // DONE! 
 			
-			// check for existence of 2x1 gaps and discard...
-			// if (hasGaps()) {
-			// 	clearGrid(placed.back());
-			// 	remain.push_back(placed.back().msize);
-			// 	placed.pop_back();
-			// 	unused.pop_back();
-			// }
-
 			// pop top from unused.
 			assert(unused.size() > 0);
 
@@ -192,6 +205,7 @@ public:
 			} 
 			else {
 				auto next = top_row.back();
+
 				top_row.pop_back();
 
 				int mx, my;
@@ -199,21 +213,23 @@ public:
 				// scanEmpty2(grid, next, mx, my);
 				// scanEmpty(placed, next.msize, mx, my);
 
-				if (mx < 0 || my < 0) {
-					clearGrid(placed.back());
-					remain.push_back(placed.back().msize);
-					placed.pop_back();
-					unused.pop_back();
-				}
-				else {
+				if (mx >= 0 && my >= 0) {
 					Square sq { mx, my, next };
 					placed.push_back(sq);
 					setGrid(sq);
 					removeFirst(remain, sq.msize);
 					nextRow();
 				}
+				else {
+					if (top_row.size() == 0) {
+						clearGrid(placed.back());
+						remain.push_back(placed.back().msize);
+						placed.pop_back();
+						unused.pop_back();
+					}
+				}
 			}
-		}
+		// }
 	}
 
 	bool isGridEmptyAt(const Map2D<bool> &grid, int size, int x, int y) {
@@ -382,20 +398,6 @@ public:
 				BLACK, 1.0
 			);
 		}
-
-		// draw grid...
-		// for (int x = 0; x < ROOT; ++x) {
-		// 	for (int y = 0; y < ROOT; ++y) {
-		// 		if (grid.get(x, y)) {
-		// 			al_draw_filled_rectangle(
-		// 				MARGINX + x * SCALE, MARGINY + y * SCALE,
-		// 				MARGINX + x * SCALE + 4, MARGINY + y * SCALE + 4,
-		// 				BLACK
-		// 			);
-		// 		}
-		// 	}
-		// }
-
 	}
 
 	virtual ~App() {}
@@ -408,7 +410,7 @@ int main(int argc, const char *const *argv)
 	mainloop
 		.setTitle("Genuary26 Day 14")
 		.setAppName("Genuary26.14")
-		.setLogicIntervalMsec(20)
+		.setLogicIntervalMsec(50)
 		.setPreferredDisplaySize(1280, 800);
 
 	if (!mainloop.init(argc, argv)) {
