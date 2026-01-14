@@ -36,6 +36,9 @@ constexpr int HORIZON = SCREEN_H / (HORIZON_RATIO + 1) * HORIZON_RATIO;
 
 constexpr double WAVE_SPEED = 5.0 * M_PI / 180.0;
 
+ALLEGRO_COLOR building_color = al_map_rgb(28, 28, 28);
+ALLEGRO_COLOR window_color = al_map_rgb(127, 127, 0);
+
 enum ParticleType { PT_DISABLED, PT_ARROW, PT_EXPLOSION };
 
 struct Particle {
@@ -46,242 +49,218 @@ struct Particle {
 	int intensity = 0;
 };
 
-std::vector<Particle> particles(PARTICLE_MAX);
+class Fireworks : public IComponent {
+public:
 
-int arrow_count = 0;
-int particle_count = 0;
+	std::vector<Particle> particles {PARTICLE_MAX};
 
-double angle_wave = 0.0;
+	int arrow_count = 0;
+	int particle_count = 0;
 
-ALLEGRO_BITMAP* background = nullptr;
-ALLEGRO_BITMAP* skyline = nullptr;
-ALLEGRO_BITMAP* mirror = nullptr;
+	double angle_wave = 0.0;
 
-ALLEGRO_COLOR building_color = al_map_rgb(28, 28, 28);
-ALLEGRO_COLOR window_color = al_map_rgb(127, 127, 0);
+	ALLEGRO_BITMAP* background = nullptr;
+	ALLEGRO_BITMAP* skyline = nullptr;
+	ALLEGRO_BITMAP* mirror = nullptr;
 
-bool show_fps = false;
-bool do_vsync = false;
+	ALLEGRO_COLOR firework_color(int base, int intensity) {
+		static ALLEGRO_COLOR base_colors[COLOR_COUNT] = {
+			{1,1,1,1}, {1,1,0,1}, {1,0,1,1},
+			{1,0,0,1}, {0,1,0,1}, {0,1,1,1}, {0,0,1,1}
+		};
+		float scale = float(intensity) / (GRADE_COUNT - 1);
+		ALLEGRO_COLOR c = base_colors[base];
+		return al_map_rgb_f(c.r * scale, c.g * scale, c.b * scale);
+	}
 
-/* ------------------------------------------------------------ */
+	int find_free_particle() {
+		for (int i = 0; i < PARTICLE_MAX; i++)
+			if (particles[i].type == PT_DISABLED)
+				return i;
+		return 0;
+	}
 
-ALLEGRO_COLOR firework_color(int base, int intensity) {
-	static ALLEGRO_COLOR base_colors[COLOR_COUNT] = {
-		{1,1,1,1}, {1,1,0,1}, {1,0,1,1},
-		{1,0,0,1}, {0,1,0,1}, {0,1,1,1}, {0,0,1,1}
-	};
-	float scale = float(intensity) / (GRADE_COUNT - 1);
-	ALLEGRO_COLOR c = base_colors[base];
-	return al_map_rgb_f(c.r * scale, c.g * scale, c.b * scale);
-}
+	void init_particles() {
+		for (auto& p : particles) {
+			p.type = PT_DISABLED;
+		}
+	}
 
-int find_free_particle() {
-	for (int i = 0; i < PARTICLE_MAX; i++)
-		if (particles[i].type == PT_DISABLED)
-			return i;
-	return 0;
-}
+	void create_arrow() {
+		int idx = find_free_particle();
+		Particle& p = particles[idx];
+		if (p.type == PT_DISABLED) particle_count++;
 
-void init_particles() {
-	for (auto& p : particles)
+		p.x = SCREEN_W / 4 + rand() % (SCREEN_W / 2);
+		p.y = HORIZON;
+		p.time = rand() % 50 + 50;
+		p.dy = (rand() % 100 / 50.0 - 4) * sqrt(HORIZON) / 13;
+		p.dx = ((rand() % 100) / 50.0 - 1) * 300 / SCREEN_W;
+		p.type = PT_ARROW;
+		p.color = rand() % COLOR_COUNT;
+		p.intensity = GRADE_COUNT - 1;
+
+		arrow_count++;
+	}
+
+	void explode(Particle& p) {
 		p.type = PT_DISABLED;
-}
+		arrow_count--;
+		particle_count--;
 
-/* ------------------------------------------------------------ */
+		double adelta = (M_PI * 2.0) / (double)EXPLOSION_PARTICLES;
+		for (int i = 0; i < EXPLOSION_PARTICLES; ++i) {
+			double alpha = (double)(i) * M_PI * 2.0 / (double)EXPLOSION_PARTICLES;
+			for (int j = 0; j < 2; j++) {
+				int idx = find_free_particle();
+				Particle& q = particles[idx];
+				if (q.type == PT_DISABLED) particle_count++;
 
-void create_arrow() {
-	int idx = find_free_particle();
-	Particle& p = particles[idx];
-	if (p.type == PT_DISABLED) particle_count++;
-
-	p.x = SCREEN_W / 4 + rand() % (SCREEN_W / 2);
-	p.y = HORIZON;
-	p.time = rand() % 50 + 50;
-	p.dy = (rand() % 100 / 50.0 - 4) * sqrt(HORIZON) / 13;
-	p.dx = ((rand() % 100) / 50.0 - 1) * 300 / SCREEN_W;
-	p.type = PT_ARROW;
-	p.color = rand() % COLOR_COUNT;
-	p.intensity = GRADE_COUNT - 1;
-
-	arrow_count++;
-}
-
-void explode(Particle& p) {
-	p.type = PT_DISABLED;
-	arrow_count--;
-	particle_count--;
-
-	double adelta = (M_PI * 2.0) / (double)EXPLOSION_PARTICLES;
-	for (int i = 0; i < EXPLOSION_PARTICLES; ++i) {
-		double alpha = (double)(i) * M_PI * 2.0 / (double)EXPLOSION_PARTICLES;
-		for (int j = 0; j < 2; j++) {
-			int idx = find_free_particle();
-			Particle& q = particles[idx];
-			if (q.type == PT_DISABLED) particle_count++;
-
-			double speed = j + double(rand() % 40) / 40.0;
-			q.x = p.x;
-			q.y = p.y;
-			q.dx = speed * sin(alpha);
-			q.dy = speed * cos(alpha);
-			q.type = PT_EXPLOSION;
-			q.time = EXPLOSION_TIME;
-			q.color = p.color;
-			q.intensity = p.intensity;
-		}
-	}
-}
-
-void move_particles() {
-	for (auto& p : particles) {
-		if (p.type == PT_ARROW) {
-			p.dy += GRAVITY;
-			p.x += p.dx;
-			p.y += p.dy;
-			if (--p.time <= 0)
-				explode(p);
-		}
-		else if (p.type == PT_EXPLOSION) {
-			p.dy += GRAVITY;
-			p.dx *= 0.98;
-			p.dy *= 0.98;
-			p.x += p.dx;
-			p.y += p.dy;
-			if (--p.time <= 0) {
-				p.type = PT_DISABLED;
-				particle_count--;
+				double speed = j + double(rand() % 40) / 40.0;
+				q.x = p.x;
+				q.y = p.y;
+				q.dx = speed * sin(alpha);
+				q.dy = speed * cos(alpha);
+				q.type = PT_EXPLOSION;
+				q.time = EXPLOSION_TIME;
+				q.color = p.color;
+				q.intensity = p.intensity;
 			}
-			p.intensity = p.time * GRADE_COUNT / EXPLOSION_TIME;
 		}
 	}
-}
 
-/* ------------------------------------------------------------ */
-
-void draw_particles() {
-	for (auto& p : particles) {
-		if (p.type == PT_DISABLED) continue;
-		if (p.x < 1 || p.y < 1 || p.x >= SCREEN_W - 1 || p.y >= SCREEN_H - 1)
-			continue;
-
-		ALLEGRO_COLOR c = firework_color(p.color, p.intensity);
-		al_draw_pixel(p.x, p.y, c);
-
-		if (p.intensity > 1) {
-			ALLEGRO_COLOR c2 = firework_color(p.color, p.intensity - 2);
-			al_draw_pixel(p.x + 1, p.y, c2);
-			al_draw_pixel(p.x - 1, p.y, c2);
-			al_draw_pixel(p.x, p.y + 1, c2);
-			al_draw_pixel(p.x, p.y - 1, c2);
+	void move_particles() {
+		for (auto& p : particles) {
+			if (p.type == PT_ARROW) {
+				p.dy += GRAVITY;
+				p.x += p.dx;
+				p.y += p.dy;
+				if (--p.time <= 0)
+					explode(p);
+			}
+			else if (p.type == PT_EXPLOSION) {
+				p.dy += GRAVITY;
+				p.dx *= 0.98;
+				p.dy *= 0.98;
+				p.x += p.dx;
+				p.y += p.dy;
+				if (--p.time <= 0) {
+					p.type = PT_DISABLED;
+					particle_count--;
+				}
+				p.intensity = p.time * GRADE_COUNT / EXPLOSION_TIME;
+			}
 		}
 	}
-}
 
-void init_bitmaps() {
-	background = al_create_bitmap(SCREEN_W, HORIZON);
-	mirror = al_create_bitmap(SCREEN_W, SCREEN_H - HORIZON);
-	skyline = al_create_bitmap(SCREEN_W, SKYLINE_MAX_HEIGHT);
-}
+	void draw_particles() {
+		for (auto& p : particles) {
+			if (p.type == PT_DISABLED) continue;
+			if (p.x < 1 || p.y < 1 || p.x >= SCREEN_W - 1 || p.y >= SCREEN_H - 1)
+				continue;
 
-void destroy_bitmaps() {
-	al_destroy_bitmap(background);
-	al_destroy_bitmap(mirror);
-	al_destroy_bitmap(skyline);
-}
+			ALLEGRO_COLOR c = firework_color(p.color, p.intensity);
+			al_draw_pixel(p.x, p.y, c);
 
-void draw_background() {
-	al_set_target_bitmap(background);
-
-	ALLEGRO_COLOR sky_base = al_map_rgb( 60, 60, 255 ); 
-
-	double h = 2.0 * HORIZON / SKY_GRADE_COUNT;
-	double dh = h / SKY_GRADE_COUNT;
-	double y1 = 0;
-
-	for (int i = 0; i < SKY_GRADE_COUNT; i++) {
-		double fraction = (double)i / double(SKY_GRADE_COUNT-1); 
-		ALLEGRO_COLOR sky = al_map_rgb_f(
-			fraction * sky_base.r,
-			fraction * sky_base.g,
-			fraction * sky_base.b
-		);
-		double y2 = y1 + h;
-		h -= dh;
-		al_draw_filled_rectangle(
-			0, y1, SCREEN_W, y2, sky
-		);
-		y1 = y2;
+			if (p.intensity > 1) {
+				ALLEGRO_COLOR c2 = firework_color(p.color, p.intensity - 2);
+				al_draw_pixel(p.x + 1, p.y, c2);
+				al_draw_pixel(p.x - 1, p.y, c2);
+				al_draw_pixel(p.x, p.y + 1, c2);
+				al_draw_pixel(p.x, p.y - 1, c2);
+			}
+		}
 	}
 
-	for (int i = 0; i < NUM_STARS; i++) {
-		int star_gray = ((rand() % 4) * 32) + 127;
-		ALLEGRO_COLOR star_color = al_map_rgb(star_gray, star_gray, star_gray);
-		al_draw_pixel(rand() % SCREEN_W, rand() % HORIZON, star_color);
+	void draw_background() {
+		al_set_target_bitmap(background);
+
+		ALLEGRO_COLOR sky_base = al_map_rgb( 60, 60, 255 ); 
+
+		double h = 2.0 * HORIZON / SKY_GRADE_COUNT;
+		double dh = h / SKY_GRADE_COUNT;
+		double y1 = 0;
+
+		for (int i = 0; i < SKY_GRADE_COUNT; i++) {
+			double fraction = (double)i / double(SKY_GRADE_COUNT-1); 
+			ALLEGRO_COLOR sky = al_map_rgb_f(
+				fraction * sky_base.r,
+				fraction * sky_base.g,
+				fraction * sky_base.b
+			);
+			double y2 = y1 + h;
+			h -= dh;
+			al_draw_filled_rectangle(
+				0, y1, SCREEN_W, y2, sky
+			);
+			y1 = y2;
+		}
+
+		for (int i = 0; i < NUM_STARS; i++) {
+			int star_gray = ((rand() % 4) * 32) + 127;
+			ALLEGRO_COLOR star_color = al_map_rgb(star_gray, star_gray, star_gray);
+			al_draw_pixel(rand() % SCREEN_W, rand() % HORIZON, star_color);
+		}
 	}
-}
 
-void draw_skyline() {
-	al_set_target_bitmap(skyline);
-	al_clear_to_color(TRANSPARENT);
+	void draw_skyline() {
+		al_set_target_bitmap(skyline);
+		al_clear_to_color(TRANSPARENT);
 
-	for (int x = 0; x < SCREEN_W; x += 15) {
-		int h = rand () % 50 + 5; // must be smaller than background_max_height
-		int step = rand () % 3 + 2;
-		for (int y = SKYLINE_MAX_HEIGHT - h; y < SKYLINE_MAX_HEIGHT; y += step) {
-			// draw the building
-			al_draw_filled_rectangle (x, y, x + 15, y + 5, building_color);
-			
-			// and some windows
-			for (int dx = 0; dx < 15; dx += 4) {
-				if (rand() % 100 > 50) {
-					al_draw_filled_rectangle(x + dx + 2, y + 1, x + dx + 5, y + 2, window_color);
+		for (int x = 0; x < SCREEN_W; x += 15) {
+			int h = rand () % 50 + 5; // must be smaller than background_max_height
+			int step = rand () % 3 + 2;
+			for (int y = SKYLINE_MAX_HEIGHT - h; y < SKYLINE_MAX_HEIGHT; y += step) {
+				// draw the building
+				al_draw_filled_rectangle (x, y, x + 15, y + 5, building_color);
+				
+				// and some windows
+				for (int dx = 0; dx <= 8; dx += 4) {
+					if (rand() % 100 > 50) {
+						al_draw_filled_rectangle(x + dx + 2, y + 1, x + dx + 5, y + 2, window_color);
+					}
 				}
 			}
 		}
+
+		// TODO: line below messes things up in emscripten!
+		// al_set_target_backbuffer(al_get_current_display());
 	}
 
-	// TODO: line below messes things up in emscripten!
-	// al_set_target_backbuffer(al_get_current_display());
-}
+	void draw_mirror() {
+		ALLEGRO_BITMAP *cur = al_get_target_bitmap();
+		al_set_target_bitmap(mirror);
+		for (int i = 0; i < SCREEN_H - HORIZON; i++) {
+			// variation for this line for the wave movement.
+			double angle = angle_wave + ((double)i / 20.0);
+			int var = sin(angle) * (double)(SCREEN_H - HORIZON - i) * 0.1;
 
-void move_fireworks() {
-	if (arrow_count < ARROW_MIN) create_arrow();
-	if (arrow_count < ARROW_MAX && rand() % 100 > 95) create_arrow();
-	move_particles();
-	angle_wave += WAVE_SPEED;
-}
+			al_draw_bitmap_region(
+				cur, 
+				0, i * HORIZON_RATIO + 1, SCREEN_W, i * HORIZON_RATIO + 2,
+				0 + var, i,
+				0
+			);
+		}
 
-void draw_mirror() {
-	ALLEGRO_BITMAP *cur = al_get_target_bitmap();
-	al_set_target_bitmap(mirror);
-	for (int i = 0; i < SCREEN_H - HORIZON; i++) {
-		// variation for this line for the wave movement.
-		double angle = angle_wave + ((double)i / 20.0);
-		int var = sin(angle) * (double)(SCREEN_H - HORIZON - i) * 0.1;
-
-		al_draw_bitmap_region(
-			cur, 
-			0, i * HORIZON_RATIO + 1, SCREEN_W, i * HORIZON_RATIO + 2,
-			0 + var, i,
-			0
-		);
+		al_set_target_bitmap(cur);
+		al_draw_tinted_bitmap(mirror, GREY, 0, HORIZON, ALLEGRO_FLIP_VERTICAL);
 	}
 
-	al_set_target_bitmap(cur);
-	al_draw_tinted_bitmap(mirror, GREY, 0, HORIZON, ALLEGRO_FLIP_VERTICAL);
-}
-
-class Fireworks : public IComponent {
-public:
 	Fireworks() {
+		background = al_create_bitmap(SCREEN_W, HORIZON);
+		mirror = al_create_bitmap(SCREEN_W, SCREEN_H - HORIZON);
+		skyline = al_create_bitmap(SCREEN_W, SKYLINE_MAX_HEIGHT);
+		
 		init_particles();
-		init_bitmaps();
 		draw_background();
 		draw_skyline();
 	}
 
 	virtual ~Fireworks() {
-		destroy_bitmaps();
+		al_destroy_bitmap(background);
+		al_destroy_bitmap(mirror);
+		al_destroy_bitmap(skyline);
 	}
 
 	void draw(const GraphicsContext &gc) override {
@@ -292,7 +271,10 @@ public:
 	};
 
 	void update() {
-		move_fireworks();
+		if (arrow_count < ARROW_MIN) create_arrow();
+		if (arrow_count < ARROW_MAX && rand() % 100 > 95) create_arrow();
+		move_particles();
+		angle_wave += WAVE_SPEED;
 	}
 };
 
