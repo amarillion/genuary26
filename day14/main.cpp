@@ -266,12 +266,29 @@ public:
 	void scanEmpty3(const Map2D<bool> &grid, int size, int &rx, int &ry) {
 		int x = -1;
 		int y = -1;
-		findGap(grid, size, x, y);
+		findGap0(grid, x, y);
 		if (x >= 0 && y >= 0) {
-			if (isGridEmptyAt(grid, size, x, y)) {
-				rx = x;
-				ry = y;
-				return;
+			if (x + size <= ROOT && y + size <= ROOT) {
+				if (isGridEmptyAt(grid, size, x, y)) {
+					rx = x;
+					ry = y;
+					return;
+				}
+			}
+		}
+		rx = -1;
+		ry = -1;
+	}
+
+	// Regular scan
+	void findGap0(const Map2D<bool> &grid, int &rx, int &ry) {
+		for (int x = 0; x < ROOT; ++x) {
+			for (int y = 0; y < ROOT; ++y) {
+				if (!grid(x, y)) {
+					rx = x;
+					ry = y;
+					return;
+				}
 			}
 		}
 		rx = -1;
@@ -279,8 +296,8 @@ public:
 	}
 
 	// Scan inL-shape
-	void findGap(const Map2D<bool> &grid, int size, int &rx, int &ry) {
-		for (int i = 0; i < (ROOT - size + 1); ++i) {
+	void findGap(const Map2D<bool> &grid, int &rx, int &ry) {
+		for (int i = 0; i < ROOT; ++i) {
 			int x, y;
 			y = i;
 			for (x = 0; x <= i; ++x) {
