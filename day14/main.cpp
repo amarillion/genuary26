@@ -163,9 +163,10 @@ public:
 		unused.push_back(new_row);
 	}
 
-	void shuffle() {
-		random_shuffle(squares.begin(), squares.end());
-	}
+	// void shuffle() {
+	//  // NOTE: random_shuffle not available in emscripten toolchain
+	// 	random_shuffle(squares.begin(), squares.end());
+	// }
 
 	vector<vector<int>> unused;
 
