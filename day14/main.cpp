@@ -6,6 +6,7 @@
 
 #include <list>
 #include "map2d.h"
+#include <set>
 
 using namespace std;
 
@@ -64,6 +65,7 @@ public:
 	int frame;
 	
 	vector<int> squares;
+	vector<int> remain;
 	vector<Square> placed;
 	
 	Map2D<bool> grid { 45, 45, false };
@@ -93,8 +95,28 @@ public:
 
 		shuffle();
 		
-		// initialize unused
-		unused.push_back(squares);
+		remain = squares;
+		nextRow();
+	}
+
+	void nextRow() {
+		// initialize a new row on unused.
+		// in order of original squares array as the random seed...
+		vector<int> new_row = remain;
+		// printf("Minus placed: ");
+		// for (int i : new_row) {
+		// 	printf("%i,", i);
+		// }
+		// printf("\n");
+		// remove duplicates to speed up the process
+		removeDuplicates(new_row);
+		// ///////
+		// printf("New row: ");
+		// for (int i : new_row) {
+		// 	printf("%i,", i);
+		// }
+		// printf("\n");
+		unused.push_back(new_row);
 	}
 
 	void shuffle() {
@@ -138,18 +160,25 @@ public:
 		return false;
 	}
 
+	void removeFirst(vector<int> &vec, int needle) {
+		auto it = find(vec.begin(), vec.end(), needle);
+		assert(it != vec.end());
+		vec.erase(it);
+	}
+
 	// recursive descent approach
 	void update() override {
 		
-		for (int i = 0; i < 500; ++i) {
+		for (int i = 0; i < 2000; ++i) {
 			if (placed.size() == squares.size()) { return; } // DONE! 
 			
 			// check for existence of 2x1 gaps and discard...
-			if (hasGaps()) {
-				clearGrid(placed.back());
-				placed.pop_back();
-				unused.pop_back();
-			}
+			// if (hasGaps()) {
+			// 	clearGrid(placed.back());
+			// 	remain.push_back(placed.back().msize);
+			// 	placed.pop_back();
+			// 	unused.pop_back();
+			// }
 
 			// pop top from unused.
 			assert(unused.size() > 0);
@@ -157,28 +186,31 @@ public:
 			auto &top_row = unused.back();
 			if (top_row.size() == 0) {
 				clearGrid(placed.back());
+				remain.push_back(placed.back().msize);
 				placed.pop_back();
 				unused.pop_back();
 			} 
 			else {
-
 				auto next = top_row.back();
 				top_row.pop_back();
 
 				int mx, my;
-				scanEmpty2(grid, next, mx, my);
+				scanEmpty3(grid, next, mx, my);
+				// scanEmpty2(grid, next, mx, my);
 				// scanEmpty(placed, next.msize, mx, my);
 
 				if (mx < 0 || my < 0) {
 					clearGrid(placed.back());
+					remain.push_back(placed.back().msize);
 					placed.pop_back();
 					unused.pop_back();
 				}
 				else {
-					unused.push_back(top_row);
 					Square sq { mx, my, next };
 					placed.push_back(sq);
 					setGrid(sq);
+					removeFirst(remain, sq.msize);
+					nextRow();
 				}
 			}
 		}
@@ -231,6 +263,67 @@ public:
 		ry = -1;
 	}
 
+	void scanEmpty3(const Map2D<bool> &grid, int size, int &rx, int &ry) {
+		int x = -1;
+		int y = -1;
+		findGap(grid, size, x, y);
+		if (x >= 0 && y >= 0) {
+			if (isGridEmptyAt(grid, size, x, y)) {
+				rx = x;
+				ry = y;
+				return;
+			}
+		}
+		rx = -1;
+		ry = -1;
+	}
+
+	// Scan inL-shape
+	void findGap(const Map2D<bool> &grid, int size, int &rx, int &ry) {
+		for (int i = 0; i < (ROOT - size + 1); ++i) {
+			int x, y;
+			y = i;
+			for (x = 0; x <= i; ++x) {
+				if (!grid(x, y)) {
+					rx = x;
+					ry = y;
+					return;
+				}
+			}
+			x = i;
+			for (y = 0; y <= i; ++y) {
+				if (!grid(x, y)) {
+					rx = x;
+					ry = y;
+					return;
+				}
+			}
+		}
+		rx = -1;
+		ry = -1;
+	}
+
+	void removeDuplicates(vector<int>& myVector) {
+		set<int> seen;
+
+		// Using remove_if to eliminate duplicates and get the
+		// new end iterator
+		auto newEnd = remove_if(
+			myVector.begin(), myVector.end(),
+			[&seen](int& value) {
+				// Checking if value has been seen; if not, add
+				// to seen and keep in vector
+				if (seen.find(value) == seen.end()) {
+					seen.insert(value);
+					return false; // Don't remove the item
+				}
+				return true; // Remove the item
+			});
+
+		// Erase the non-unique elements
+		myVector.erase(newEnd, myVector.end());
+	}
+
 	/* scan based on linear scan of placed rectangles */
 	void scanEmpty(const vector<Square> &placed, int size, int &rx, int &ry) {
 		Square temp;
@@ -259,26 +352,32 @@ public:
 
 	void draw(const GraphicsContext &gc) override {
 		al_clear_to_color(LIGHT_GREY);
+		al_draw_rectangle(MARGINX, MARGINY, MARGINX + ROOT * SCALE, MARGINY + ROOT * SCALE, DARK_GREY, 1.0);
 		for (const auto &sq : placed) {
 			al_draw_filled_rectangle(
 				MARGINX + sq.mx * SCALE, MARGINY + sq.my * SCALE,
 				MARGINX + (sq.mx + sq.msize) * SCALE - 1, MARGINY + (sq.my + sq.msize) * SCALE - 1,
 				SQUARE_COLORS[sq.msize - 1]
 			);
+			al_draw_rectangle(
+				MARGINX + sq.mx * SCALE, MARGINY + sq.my * SCALE,
+				MARGINX + (sq.mx + sq.msize) * SCALE - 1, MARGINY + (sq.my + sq.msize) * SCALE - 1,
+				BLACK, 1.0
+			);
 		}
 
 		// draw grid...
-		for (int x = 0; x < ROOT; ++x) {
-			for (int y = 0; y < ROOT; ++y) {
-				if (grid.get(x, y)) {
-					al_draw_filled_rectangle(
-						MARGINX + x * SCALE, MARGINY + y * SCALE,
-						MARGINX + x * SCALE + 4, MARGINY + y * SCALE + 4,
-						BLACK
-					);
-				}
-			}
-		}
+		// for (int x = 0; x < ROOT; ++x) {
+		// 	for (int y = 0; y < ROOT; ++y) {
+		// 		if (grid.get(x, y)) {
+		// 			al_draw_filled_rectangle(
+		// 				MARGINX + x * SCALE, MARGINY + y * SCALE,
+		// 				MARGINX + x * SCALE + 4, MARGINY + y * SCALE + 4,
+		// 				BLACK
+		// 			);
+		// 		}
+		// 	}
+		// }
 
 	}
 
