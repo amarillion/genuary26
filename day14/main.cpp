@@ -63,7 +63,7 @@ class App : public IApp {
 public:
 	int frame;
 	
-	vector<Square> squares;
+	vector<int> squares;
 	vector<Square> placed;
 	
 	Map2D<bool> grid { 45, 45, false };
@@ -87,38 +87,21 @@ public:
 
 		for (int i = 1; i <= BASE; ++i) {
 			for (int j = 0; j < i; ++j) {
-				Square sq {
-					randomInt(ROOT - i),
-					randomInt(ROOT - i),
-					i
-				};
-				squares.push_back(sq);
+				squares.push_back(i);
 			}
 		}
 
-		// for (auto &sq : squares) {
-		// 	printf("%i, %i size %i\n", sq.mx, sq.my, sq.msize);
-		// }
-
 		shuffle();
 		
-		for (int i = 0; i < ROOT; ++i) {
-			counter[ROOT] = 0;
-		}
-
 		// initialize unused
 		unused.push_back(squares);
 	}
-
-	int current = 0;
 
 	void shuffle() {
 		random_shuffle(squares.begin(), squares.end());
 	}
 
-	int counter[ROOT];
-
-	vector<vector<Square>> unused;
+	vector<vector<int>> unused;
 
 	void setGrid(const Square &sq, bool value = true) {
 		for (int x = 0; x < sq.msize; ++x) {
@@ -132,15 +115,42 @@ public:
 		setGrid(sq, false);
 	}
 	
+	bool isHGap(int x, int y) {
+		return (!grid.get(x, y)) && grid.get(x - 1, y) && grid.get(x + 1, y);
+	}
+	bool isVGap(int x, int y) {
+		return (!grid.get(x, y)) && grid.get(x, y - 1) && grid.get(x, y + 1);
+	}
+
+	bool hasGaps() {
+		for (int x = 1; x < ROOT - 1; ++x) {
+			for (int y = 1; y < ROOT - 1; ++y) {
+				if (!grid.get(x, y)) {
+					if (isHGap(x, y) && (isHGap(x, y - 1) || isHGap(x, y + 1))) {
+						return true;
+					}
+					if (isVGap(x, y) && (isVGap(x + 1, y) || isVGap(x - 1, y))) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
 	// recursive descent approach
 	void update() override {
 		
-		// TODO:
-		// check for existence of 2x1 gaps and discard...
-
-		for (int i = 0; i < 2000; ++i) {
+		for (int i = 0; i < 500; ++i) {
 			if (placed.size() == squares.size()) { return; } // DONE! 
 			
+			// check for existence of 2x1 gaps and discard...
+			if (hasGaps()) {
+				clearGrid(placed.back());
+				placed.pop_back();
+				unused.pop_back();
+			}
+
 			// pop top from unused.
 			assert(unused.size() > 0);
 
@@ -156,7 +166,7 @@ public:
 				top_row.pop_back();
 
 				int mx, my;
-				scanEmpty2(grid, next.msize, mx, my);
+				scanEmpty2(grid, next, mx, my);
 				// scanEmpty(placed, next.msize, mx, my);
 
 				if (mx < 0 || my < 0) {
@@ -166,10 +176,9 @@ public:
 				}
 				else {
 					unused.push_back(top_row);
-					next.mx = mx;
-					next.my = my;
-					placed.push_back(next);
-					setGrid(next);
+					Square sq { mx, my, next };
+					placed.push_back(sq);
+					setGrid(sq);
 				}
 			}
 		}
@@ -208,8 +217,8 @@ public:
 
 	/* scan based on up-to-date grid, should be faster */
 	void scanEmpty2(const Map2D<bool> &grid, int size, int &rx, int &ry) {
-		for (int x = 0; x < (ROOT - size); ++x) {
-			for (int y = 0; y < (ROOT - size); ++y) {
+		for (int x = 0; x < (ROOT - size + 1); ++x) {
+			for (int y = 0; y < (ROOT - size + 1); ++y) {
 				bool isEmpty = isGridEmptyAt(grid, size, x, y);
 				if (isEmpty) {
 					rx = x;
@@ -226,8 +235,8 @@ public:
 	void scanEmpty(const vector<Square> &placed, int size, int &rx, int &ry) {
 		Square temp;
 		temp.msize = size;
-		for (int x = 0; x < (ROOT - temp.msize); ++x) {
-			for (int y = 0; y < (ROOT - temp.msize); ++y) {
+		for (int x = 0; x < (ROOT - temp.msize + 1); ++x) {
+			for (int y = 0; y < (ROOT - temp.msize + 1); ++y) {
 				temp.mx = x;
 				temp.my = y;
 				bool isEmpty = true;
