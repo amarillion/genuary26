@@ -10,44 +10,11 @@
 
 using namespace std;
 
-int randomInt(int max) {
-	return rand() % max; 
-}
-
-float randomFloat(float max = 1.0) {
-	return max * (float)(rand()) / (float)RAND_MAX;
-}
-
 struct Square {
 	int mx;
 	int my;	
 	int msize;
-
-	bool overlaps(const Square &other) {
-		return !(
-			(mx >= other.mx + other.msize) || 
-			(other.mx >= mx + msize) || 
-			(my >= other.my + other.msize) || 
-			(other.my >= my + msize)
-		);
-	}
-
-	int overlapSize(const Square &other) {
-		int overlapX = min(mx + msize, other.mx + other.msize) - max(mx, other.mx);
-		int overlapY = min(my + msize, other.my + other.msize) - max(my, other.my);
-		int total = max(0, overlapX) * max(0, overlapY);
-		// if (total > 0) {
-		// 	printf("Rect %i,%i %ix%i overlaps with %i,%i %ix%i overlapX=%i overlapY=%i total=%i\n", 
-		// 		mx, my, msize, msize, other.mx, other.my, other.msize, other.msize, overlapX, overlapY, total);
-		// }
-		return total;
-	}
 };
-
-inline bool operator <(const Square& lhs, const Square& rhs)
-{
-	return lhs.msize > rhs.msize; 
-}
 
 constexpr int ROOT = 45;
 constexpr int BASE = 9;
@@ -98,35 +65,17 @@ vector<int> solution_almost {
 	3, 3, 4, 5, 5, 6, 7, 8, 8, 8, 9
 };
 
-ALLEGRO_COLOR SQUARE_COLORS[BASE];
+vector<int> squares;
+vector<int> remain;
+vector<vector<int>> unused;
+vector<Square> placed;
+Map2D<bool> grid { 45, 45, false };
 
-class App : public IApp {
+class PartridgeSolver {
+private:
 public:
-	int frame;
-	
-	vector<int> squares;
-	vector<int> remain;
-	vector<Square> placed;
-	
-	Map2D<bool> grid { 45, 45, false };
-
-	void init() {
-		srand(time(0));
-
-		// init palette
-		int hue_start = 270;
-		int hue_delta = 360 / BASE;
-		float s = 0.6;
-		float v = 0.9;
-		for (int i = 0; i <= BASE; ++i) {
-			ALLEGRO_COLOR col = al_color_hsv(
-				((i * hue_delta) + hue_start) % 360, s, v 
-			);
-			SQUARE_COLORS[i] = col;
-		}
-
+	PartridgeSolver() {
 		// initialize squares
-
 		for (int i = 1; i <= BASE; ++i) {
 			for (int j = 0; j < i; ++j) {
 				squares.push_back(i);
@@ -140,25 +89,55 @@ public:
 		nextRow();
 	}
 
+	// recursive descent approach
+	void step() {
+		if (placed.size() == squares.size()) { return; } // DONE! 
+		
+		// pop top from unused.
+		assert(unused.size() > 0);
+
+		auto &top_row = unused.back();
+		if (top_row.size() == 0) {
+			clearGrid(placed.back());
+			remain.push_back(placed.back().msize);
+			placed.pop_back();
+			unused.pop_back();
+		} 
+		else {
+			auto next = top_row.back();
+
+			top_row.pop_back();
+
+			int mx, my;
+			scanEmpty(grid, next, mx, my);
+
+			if (mx >= 0 && my >= 0) {
+				Square sq { mx, my, next };
+				placed.push_back(sq);
+				setGrid(sq);
+				removeFirst(remain, sq.msize);
+				nextRow();
+			}
+			else {
+				if (top_row.size() == 0) {
+					clearGrid(placed.back());
+					remain.push_back(placed.back().msize);
+					placed.pop_back();
+					unused.pop_back();
+				}
+			}
+		}
+	}
+
+private:
 	void nextRow() {
 		// initialize a new row on unused.
 		// in order of original squares array as the random seed...
 		vector<int> new_row = remain;
-		// printf("Minus placed: ");
-		// for (int i : new_row) {
-		// 	printf("%i,", i);
-		// }
-		// printf("\n");
-		// remove duplicates to speed up the process
+		// remove duplicates, there are many squares interchangeable
 		removeDuplicates(new_row);
-		// ///////
-		// printf("New row: ");
-		// for (int i : new_row) {
-		// 	printf("%i,", i);
-		// }
-		// printf("\n");
 
-		// because we pop from the back, to presever order we need to reverse here.
+		// because we pop from the back, to presevere order we reverse first.
 		reverse(new_row.begin(), new_row.end());
 		unused.push_back(new_row);
 	}
@@ -167,8 +146,6 @@ public:
 	//  // NOTE: random_shuffle not available in emscripten toolchain
 	// 	random_shuffle(squares.begin(), squares.end());
 	// }
-
-	vector<vector<int>> unused;
 
 	void setGrid(const Square &sq, bool value = true) {
 		for (int x = 0; x < sq.msize; ++x) {
@@ -186,51 +163,6 @@ public:
 		auto it = find(vec.begin(), vec.end(), needle);
 		assert(it != vec.end());
 		vec.erase(it);
-	}
-
-	// recursive descent approach
-	void update() override {
-		
-		// for (int i = 0; i < 100; ++i) {
-			if (placed.size() == squares.size()) { return; } // DONE! 
-			
-			// pop top from unused.
-			assert(unused.size() > 0);
-
-			auto &top_row = unused.back();
-			if (top_row.size() == 0) {
-				clearGrid(placed.back());
-				remain.push_back(placed.back().msize);
-				placed.pop_back();
-				unused.pop_back();
-			} 
-			else {
-				auto next = top_row.back();
-
-				top_row.pop_back();
-
-				int mx, my;
-				scanEmpty3(grid, next, mx, my);
-				// scanEmpty2(grid, next, mx, my);
-				// scanEmpty(placed, next.msize, mx, my);
-
-				if (mx >= 0 && my >= 0) {
-					Square sq { mx, my, next };
-					placed.push_back(sq);
-					setGrid(sq);
-					removeFirst(remain, sq.msize);
-					nextRow();
-				}
-				else {
-					if (top_row.size() == 0) {
-						clearGrid(placed.back());
-						remain.push_back(placed.back().msize);
-						placed.pop_back();
-						unused.pop_back();
-					}
-				}
-			}
-		// }
 	}
 
 	bool isGridEmptyAt(const Map2D<bool> &grid, int size, int x, int y) {
@@ -264,26 +196,10 @@ public:
 		return true;
 	}
 
-	/* scan based on up-to-date grid, should be faster */
-	void scanEmpty2(const Map2D<bool> &grid, int size, int &rx, int &ry) {
-		for (int x = 0; x < (ROOT - size + 1); ++x) {
-			for (int y = 0; y < (ROOT - size + 1); ++y) {
-				bool isEmpty = isGridEmptyAt(grid, size, x, y);
-				if (isEmpty) {
-					rx = x;
-					ry = y;
-					return;
-				}
-			}
-		}
-		rx = -1;
-		ry = -1;
-	}
-
-	void scanEmpty3(const Map2D<bool> &grid, int size, int &rx, int &ry) {
+	void scanEmpty(const Map2D<bool> &grid, int size, int &rx, int &ry) {
 		int x = -1;
 		int y = -1;
-		findGap0(grid, x, y);
+		findEmptyCell(grid, x, y);
 		if (x >= 0 && y >= 0) {
 			if (x + size <= ROOT && y + size <= ROOT) {
 				if (isGridEmptyAt(grid, size, x, y)) {
@@ -297,35 +213,9 @@ public:
 		ry = -1;
 	}
 
-	// Regular scan
-	void findGap0(const Map2D<bool> &grid, int &rx, int &ry) {
+	void findEmptyCell(const Map2D<bool> &grid, int &rx, int &ry) {
 		for (int x = 0; x < ROOT; ++x) {
 			for (int y = 0; y < ROOT; ++y) {
-				if (!grid(x, y)) {
-					rx = x;
-					ry = y;
-					return;
-				}
-			}
-		}
-		rx = -1;
-		ry = -1;
-	}
-
-	// Scan inL-shape
-	void findGap(const Map2D<bool> &grid, int &rx, int &ry) {
-		for (int i = 0; i < ROOT; ++i) {
-			int x, y;
-			y = i;
-			for (x = 0; x <= i; ++x) {
-				if (!grid(x, y)) {
-					rx = x;
-					ry = y;
-					return;
-				}
-			}
-			x = i;
-			for (y = 0; y <= i; ++y) {
 				if (!grid(x, y)) {
 					rx = x;
 					ry = y;
@@ -358,30 +248,32 @@ public:
 		myVector.erase(newEnd, myVector.end());
 	}
 
-	/* scan based on linear scan of placed rectangles */
-	void scanEmpty(const vector<Square> &placed, int size, int &rx, int &ry) {
-		Square temp;
-		temp.msize = size;
-		for (int x = 0; x < (ROOT - temp.msize + 1); ++x) {
-			for (int y = 0; y < (ROOT - temp.msize + 1); ++y) {
-				temp.mx = x;
-				temp.my = y;
-				bool isEmpty = true;
-				for (const auto &sq : placed) {
-					if (temp.overlaps(sq)) {
-						isEmpty = false;
-						break;
-					}
-				}
-				if (isEmpty) {
-					rx = x;
-					ry = y;
-					return;
-				}
-			}
+};
+
+class App : public IApp {
+private:
+	ALLEGRO_COLOR SQUARE_COLORS[BASE];
+	PartridgeSolver solver;
+public:
+	void init() {
+		srand(time(0));
+
+		// init palette
+		int hue_start = 270;
+		int hue_delta = 360 / BASE;
+		float s = 0.6;
+		float v = 0.9;
+		for (int i = 0; i <= BASE; ++i) {
+			ALLEGRO_COLOR col = al_color_hsv(
+				((i * hue_delta) + hue_start) % 360, s, v 
+			);
+			SQUARE_COLORS[i] = col;
 		}
-		rx = -1;
-		ry = -1;
+	}
+
+		// recursive descent approach
+	void update() override {
+		solver.step();
 	}
 
 	void draw(const GraphicsContext &gc) override {
