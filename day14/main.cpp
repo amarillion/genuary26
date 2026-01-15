@@ -7,6 +7,8 @@
 #include <list>
 #include "map2d.h"
 #include <set>
+#include <algorithm>
+#include <random>
 
 using namespace std;
 
@@ -24,46 +26,6 @@ constexpr int SCREEN_H = 800;
 constexpr int SCALE = SCREEN_H / ROOT;
 constexpr int MARGINX = (SCREEN_W - (SCALE * ROOT)) / 2;
 constexpr int MARGINY = (SCREEN_H - (SCALE * ROOT)) / 2;
-
-// ordered first from top to bottom, then from left to right:
-vector<int> solution {
-	8, 5, 7, 7, 9, 9,
-	3, 2,
-	1, 7, 8,
-	6, 6, 9, 9,
-	5, 5, 9,
-	8, 9, 9,
-	6, 4,
-	7, 6, 4, 4,
-	6,
-	2, 7, 8, 9,
-	8, 
-	7,
-	6, 
-	3, 4,
-	3, 5,
-	9,
-	8, 8, 8,
-	7, 
-	5,
-};
-
-// starting from a partial solution to give the simulation a chance to reach the end
-vector<int> solution_almost {
-	8, 5, 7, 7, 9, 9,
-	3, 2,
-	1, 7, 8,
-	6, 6, 9, 9,
-	5, 5, 9,
-	8, 9, 9,
-	6, 4,
-	7, 6, 4, 4,
-	6,
-	2, 7, 8, 9,
-	8,
-	7,
-	3, 3, 4, 5, 5, 6, 7, 8, 8, 8, 9
-};
 
 class PartridgeSolver {
 private:
@@ -84,8 +46,7 @@ public:
 			}
 		}
 
-		// shuffle();
-		squares = solution_almost;
+		std::shuffle(squares.begin(), squares.end(), std::random_device());
 
 		remain = squares;
 		nextRow();
@@ -158,10 +119,6 @@ private:
 		unused.push_back(new_row);
 	}
 
-	// void shuffle() {
-	//  // NOTE: random_shuffle not available in emscripten toolchain
-	// 	random_shuffle(squares.begin(), squares.end());
-	// }
 	void nextRow() {
 		vector<int> new_row;
 		new_row.reserve(BASE);
@@ -179,7 +136,6 @@ private:
 		reverse(new_row.begin(), new_row.end());
 		unused.push_back(new_row);
 	}
-
 
 	void setGrid(const Square &sq, bool value = true) {
 		for (int x = 0; x < sq.msize; ++x) {
@@ -296,7 +252,9 @@ public:
 
 		// recursive descent approach
 	void update() override {
-		solver.step();
+		for (int i = 0; i < 100000; ++i) {
+			solver.step();
+		}
 	}
 
 	void draw(const GraphicsContext &gc) override {
@@ -321,12 +279,24 @@ public:
 
 int main(int argc, const char *const *argv)
 {
+	// // Uncomment this for headless solver
+	// PartridgeSolver solver;
+	// int counter = 0;
+	// while (!solver.done()) {
+	// 	solver.step();
+	// 	if (counter % 1000000 == 0) {
+	// 		printf("%i\n", counter);
+	// 	}
+	// 	counter++;
+	// }
+	// printf("Solved in %i steps\n", counter);
+
 	MainLoop mainloop;
 
 	mainloop
 		.setTitle("Genuary26 Day 14")
 		.setAppName("Genuary26.14")
-		.setLogicIntervalMsec(50)
+		.setLogicIntervalMsec(20)
 		.setPreferredDisplaySize(1280, 800);
 
 	if (!mainloop.init(argc, argv)) {

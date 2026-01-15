@@ -6,4 +6,4 @@ docker run \
 	-u $(id -u):$(id -g) \
 	-v $SRCDIR:/data \
 	$IMAGE \
-	make TARGET=EMSCRIPTEN BUILD=DEBUG "$@"
+	make TARGET=EMSCRIPTEN BUILD=RELEASE "$@"
