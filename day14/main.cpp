@@ -71,14 +71,14 @@ private:
 	vector<int> squares;
 	vector<int> remain;
 	vector<vector<int>> unused;
-	Map2D<bool> grid { 45, 45, false };
+	Map2D<bool> grid { ROOT, ROOT, false };
 
 public:
 	vector<Square> placed;
 
 	PartridgeSolver() {
 		// initialize squares
-		for (int i = 1; i <= BASE; ++i) {
+		for (int i = BASE; i >= 1; --i) {
 			for (int j = 0; j < i; ++j) {
 				squares.push_back(i);
 			}
@@ -89,6 +89,10 @@ public:
 
 		remain = squares;
 		nextRow();
+	}
+
+	bool done() {
+		return placed.size() == squares.size();
 	}
 
 	// recursive descent approach
@@ -119,6 +123,16 @@ public:
 				setGrid(sq);
 				removeFirst(remain, sq.msize);
 				nextRow();
+
+				if (placed.size() == squares.size()) { 
+					// DONE! 
+					printf("Found solution:\n");
+					int i = 0;
+					for (const auto &sq : placed) {
+						i++;
+						printf("- %02i square %i at (%i, %i)\n", i, sq.msize, sq.mx, sq.my);
+					}
+				}
 			}
 			else {
 				if (top_row.size() == 0) {
@@ -132,7 +146,7 @@ public:
 	}
 
 private:
-	void nextRow() {
+	void nextRow0() {
 		// initialize a new row on unused.
 		// in order of original squares array as the random seed...
 		vector<int> new_row = remain;
@@ -148,6 +162,24 @@ private:
 	//  // NOTE: random_shuffle not available in emscripten toolchain
 	// 	random_shuffle(squares.begin(), squares.end());
 	// }
+	void nextRow() {
+		vector<int> new_row;
+		new_row.reserve(BASE);
+
+		array<bool, BASE> seen;
+		seen.fill(false);
+		
+		for(auto val : remain) {
+			if (!seen[val-1]) {
+				new_row.push_back(val);
+				seen[val-1] = true;
+			}
+		}
+		// because we pop from the back, to presevere order we reverse first.
+		reverse(new_row.begin(), new_row.end());
+		unused.push_back(new_row);
+	}
+
 
 	void setGrid(const Square &sq, bool value = true) {
 		for (int x = 0; x < sq.msize; ++x) {
@@ -168,31 +200,16 @@ private:
 	}
 
 	bool isGridEmptyAt(const Map2D<bool> &grid, int size, int x, int y) {
-		bool isEmpty = true;
-		// scan top-left corner first
 		if (grid.get(x, y)) {
 			return false;
 		}
-		// if square of one, we're already done.
-		if (size == 1) {
-			return true;
-		}
-		// scan other three corners
-		if (grid.get(x + size - 1, y + size - 1)) {
-			return false;
-		}
-		if (grid.get(x, y + size - 1)) {
-			return false;
-		}
-		if (grid.get(x + size - 1, y)) {
-			return false;
-		}
-		// scan remaining points to be sure.
-		for (int xx = 0; xx < size; ++xx) {
-			for (int yy = 0; yy < size; ++yy) {
-				if (grid.get(x + xx, y + yy)) {
-					return false;
-				}
+		// scan top and left, since there are no placement gaps, that is enough
+		for (int i = 1; i < size; ++i) {
+			if (grid.get(x + i, y)) {
+				return false;
+			}
+			if (grid.get(x, y + i)) {
+				return false;
 			}
 		}
 		return true;
