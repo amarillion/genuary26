@@ -216,8 +216,8 @@ private:
 	}
 
 	void scanEmpty(const Map2D<bool> &grid, int size, int &rx, int &ry) {
-		int x = -1;
-		int y = -1;
+		int x = placed.size() == 0 ? 0 : placed.back().mx;
+		int y = placed.size() == 0 ? 0 : placed.back().my + placed.back().msize;
 		findEmptyCell(grid, x, y);
 		if (x >= 0 && y >= 0) {
 			if (x + size <= ROOT && y + size <= ROOT) {
@@ -233,14 +233,18 @@ private:
 	}
 
 	void findEmptyCell(const Map2D<bool> &grid, int &rx, int &ry) {
-		for (int x = 0; x < ROOT; ++x) {
-			for (int y = 0; y < ROOT; ++y) {
+		// as an optimization, start scanning from rx, ry...
+		int x = rx;
+		int y = ry;
+		for (; x < ROOT; ++x) {
+			for (; y < ROOT; ++y) {
 				if (!grid(x, y)) {
 					rx = x;
 					ry = y;
 					return;
 				}
 			}
+			y = 0;
 		}
 		rx = -1;
 		ry = -1;
