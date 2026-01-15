@@ -65,15 +65,17 @@ vector<int> solution_almost {
 	3, 3, 4, 5, 5, 6, 7, 8, 8, 8, 9
 };
 
-vector<int> squares;
-vector<int> remain;
-vector<vector<int>> unused;
-vector<Square> placed;
-Map2D<bool> grid { 45, 45, false };
-
 class PartridgeSolver {
 private:
+
+	vector<int> squares;
+	vector<int> remain;
+	vector<vector<int>> unused;
+	Map2D<bool> grid { 45, 45, false };
+
 public:
+	vector<Square> placed;
+
 	PartridgeSolver() {
 		// initialize squares
 		for (int i = 1; i <= BASE; ++i) {
@@ -263,7 +265,7 @@ public:
 		int hue_delta = 360 / BASE;
 		float s = 0.6;
 		float v = 0.9;
-		for (int i = 0; i <= BASE; ++i) {
+		for (int i = 0; i < BASE; ++i) {
 			ALLEGRO_COLOR col = al_color_hsv(
 				((i * hue_delta) + hue_start) % 360, s, v 
 			);
@@ -279,7 +281,7 @@ public:
 	void draw(const GraphicsContext &gc) override {
 		al_clear_to_color(LIGHT_GREY);
 		al_draw_rectangle(MARGINX, MARGINY, MARGINX + ROOT * SCALE, MARGINY + ROOT * SCALE, DARK_GREY, 1.0);
-		for (const auto &sq : placed) {
+		for (const auto &sq : solver.placed) {
 			al_draw_filled_rectangle(
 				MARGINX + sq.mx * SCALE, MARGINY + sq.my * SCALE,
 				MARGINX + (sq.mx + sq.msize) * SCALE - 1, MARGINY + (sq.my + sq.msize) * SCALE - 1,
