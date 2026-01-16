@@ -73,11 +73,15 @@ public:
 #include <iostream>
 using namespace std;
 
+#include <chrono>
+typedef std::chrono::high_resolution_clock Clock;
+
 void run_headless() {
 	// Uncomment this for headless solver
 	bool randomStart = false;
 	auto solver = IPartridgeSolver::newInstance(randomStart);
 	long counter = 0;
+	Clock::time_point start = Clock::now();
 	while (!solver->isDone()) {
 		solver->step();
 		if (counter % 1000000 == 0) {
@@ -85,7 +89,11 @@ void run_headless() {
 		}
 		counter++;
 	}
+	Clock::time_point end = Clock::now();
 	cout << "Solved in " << counter << " steps\n";
+	auto d1 = std::chrono::duration_cast<std::chrono::seconds>(end - start);
+	cout << "Duration: " << d1.count() << " seconds" << endl;
+	cout << (((float)counter / 1000000.0f) / (float)d1.count()) << " million permutations per second." << endl;
 }
 
 #endif
