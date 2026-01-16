@@ -1,6 +1,11 @@
 #pragma once
 
+// disable asserts in release mode
+#ifndef DEBUG
+#define NDEBUG
+#endif
 #include <cassert>
+
 #include <vector>
 #include "point.h"
 
