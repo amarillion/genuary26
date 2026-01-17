@@ -16,4 +16,5 @@ public:
 	virtual bool isDone() = 0;
 	virtual std::vector<Square> getPlaced() = 0;
 	static std::unique_ptr<IPartridgeSolver> newInstance(bool randomStart);
+	static std::unique_ptr<IPartridgeSolver> newInstance(std::vector<int> startPos);
 };

@@ -7,6 +7,22 @@
 
 using namespace std;
 
+vector<int> makeStartPos(int randomStart) {
+	vector<int> result;
+
+	// initialize squares
+	for (int i = BASE; i >= 1; --i) {
+		for (int j = 0; j < i; ++j) {
+			result.push_back(i);
+		}
+	}
+
+	if (randomStart) {
+		std::shuffle(result.begin(), result.end(), std::random_device());
+	}
+	return result;
+}
+
 class PartridgeSolver: public IPartridgeSolver {
 
 private:
@@ -17,17 +33,14 @@ private:
 public:
 	vector<Square> placed;
 
-	PartridgeSolver(bool randomStart) {
-		// initialize squares
-		for (int i = BASE; i >= 1; --i) {
-			for (int j = 0; j < i; ++j) {
-				squares.push_back(i);
-			}
+	PartridgeSolver(vector<int> startPos) {
+		for(int i = 0; i < ROOT + 1; ++i) {
+			vector<int> row;
+			row.reserve(BASE);
+			unused.push_back(row);
 		}
 
-		if (randomStart) {
-			std::shuffle(squares.begin(), squares.end(), std::random_device());
-		}
+		squares = startPos;
 
 		remain = squares;
 		nextRow();
@@ -181,5 +194,9 @@ private:
 };
 
 std::unique_ptr<IPartridgeSolver> IPartridgeSolver::newInstance(bool randomStart) {
-	return make_unique<PartridgeSolver>(randomStart);
+	return make_unique<PartridgeSolver>(makeStartPos(randomStart));
+}
+
+std::unique_ptr<IPartridgeSolver> IPartridgeSolver::newInstance(vector<int> start) {
+	return make_unique<PartridgeSolver>(start);
 }
