@@ -29,6 +29,8 @@ private:
 	vector<int> squares;
 	vector<int> remain;
 	vector<vector<int>> unused;
+	vector<vector<int>>::iterator top;
+
 	Map2D<bool> grid { ROOT, ROOT, false };
 public:
 	vector<Square> placed;
@@ -39,6 +41,7 @@ public:
 			row.reserve(BASE);
 			unused.push_back(row);
 		}
+		top = unused.begin();
 
 		squares = startPos;
 
@@ -54,20 +57,17 @@ public:
 	void step() {
 		if (placed.size() == squares.size()) { return; } // DONE! 
 		
-		// pop top from unused.
-		assert(unused.size() > 0);
-
-		auto &top_row = unused.back();
-		if (top_row.size() == 0) {
+		if (top->size() == 0) {
+			// pop top from unused.
+			assert(top > unused.begin());
 			clearGrid(placed.back());
 			remain.push_back(placed.back().msize);
 			placed.pop_back();
-			unused.pop_back();
+			top--;
 		} 
 		else {
-			auto next = top_row.back();
-
-			top_row.pop_back();
+			auto next = top->back();
+			top->pop_back();
 
 			int mx, my;
 			scanEmpty(grid, next, mx, my);
@@ -77,6 +77,7 @@ public:
 				placed.push_back(sq);
 				setGrid(sq);
 				removeFirst(remain, sq.msize);
+				top++;
 				nextRow();
 
 				if (placed.size() == squares.size()) { 
@@ -89,34 +90,36 @@ public:
 					}
 				}
 			}
-			else {
-				if (top_row.size() == 0) {
-					clearGrid(placed.back());
-					remain.push_back(placed.back().msize);
-					placed.pop_back();
-					unused.pop_back();
-				}
+			else if (top->size() == 0) {
+				// pop top from unused.
+				assert(top > unused.begin());
+				clearGrid(placed.back());
+				remain.push_back(placed.back().msize);
+				placed.pop_back();
+				top--;
 			}
 		}
 	}
 
 private:
 	void nextRow() {
-		vector<int> new_row;
-		new_row.reserve(BASE);
+		assert(top != unused.end());
+		top->clear();
+		// vector<int> new_row;
+		// new_row.reserve(BASE);
 
 		array<bool, BASE> seen;
 		seen.fill(false);
 		
 		for(auto val : remain) {
 			if (!seen[val-1]) {
-				new_row.push_back(val);
+				top->push_back(val);
 				seen[val-1] = true;
 			}
 		}
 		// because we pop from the back, to presevere order we reverse first.
-		reverse(new_row.begin(), new_row.end());
-		unused.push_back(new_row);
+		reverse(top->begin(), top->end());
+		// unused.push_back(new_row);
 	}
 
 	void setGrid(const Square &sq, bool value = true) {
