@@ -9,6 +9,7 @@
 #include <memory>
 #include "point.h"
 #include "graphicscontext.h"
+#include "icomponent.h"
 
 #define TWIST_START_EVENT 1024    /* value for event.type - originally in widget.h */
 
@@ -17,45 +18,12 @@
 typedef std::chrono::high_resolution_clock Clock;
 #endif
 
-/**
- * Equivalent of mainLoop->getw().
- * see there.
- * <p>
- * Represents the logical screen size, the optimal screen size for which the game was designed to run.
- * Buffer or display size may be different because they may have a transformation on them.
- * <p>
- * For example, the game may (conservatively) be designed for a 640x480 screen resolution.
- * However, the desktop resolution is 1920x1080, and this is the size you'd get for
- * the buffer bitmap width or the display width. Because the transformation applies, you'd draw
- * to the buffer as though it was sized 640x480.
- */
-#define MAIN_WIDTH MainLoop::getMainLoop()->getw()
-
-/**
- * Equivalent of mainLoop->geth().
- * See MAIN_WIDTH
- */
-#define MAIN_HEIGHT MainLoop::getMainLoop()->geth()
-
 #define TICKS_FROM_MSEC(x) ((x) / MainLoop::getMainLoop()->getLogicIntervalMsec())
 #define MSEC_FROM_TICKS(x) ((x) * MainLoop::getMainLoop()->getLogicIntervalMsec())
-
-class IApp {
-public:
-	virtual void update() = 0;
-	virtual void draw(const GraphicsContext &gc) = 0;
-	virtual void handleEvent(ALLEGRO_EVENT &evt) {};
-	virtual bool isDone() {
-		return false;
-	}
-};
 
 class MainLoop final
 {
 private:
-	int w = 0;
-	int h = 0;
-
 	ALLEGRO_BITMAP *buffer;
 	ALLEGRO_EVENT_QUEUE *equeue;
 	ALLEGRO_TIMER *logicTimer;
@@ -109,7 +77,7 @@ protected:
 	ALLEGRO_CONFIG *config;
 	bool fpsOn;
 
-	void pumpMessages(IApp *app);
+	void pumpMessages(IComponent *app);
 public:
 	bool isSmokeTest() { return smokeTest; }
 
@@ -145,7 +113,7 @@ public:
 	 * returns 0 on success, 1 on failure
 	 */
 	int init(int argc, const char *const *argv);
-	void run(IApp *app);
+	void run(IComponent *app);
 	virtual ~MainLoop();
 	
 	virtual void parseOpts(std::vector<std::string> &opts) {};
@@ -156,7 +124,4 @@ public:
 
 	Audio *audio() { return _audio.get(); }
 	static MainLoop *getMainLoop();
-
-	int getw() { return w; }
-	int geth() { return h; }
 };

@@ -9,7 +9,7 @@ double angle = (360 / 5) * (3.14159 / 180.0);
 double speed = 5.0;
 double radius = 20.0;
 
-class App : public IApp {
+class App : public IComponent {
 	float x, y;
 	float ox, oy;
 	float dx, dy;
@@ -40,10 +40,6 @@ public:
 
 		if (x < radius || x > w - radius) dx = -dx;
 		if (y < radius || y > h - radius) dy = -dy;
-	}
-
-	bool isDone() override {
-		return false;
 	}
 
 	void draw(const GraphicsContext &gc) override {

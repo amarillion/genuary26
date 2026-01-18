@@ -7,7 +7,7 @@
 #include <vector>
 #include <string>
 #include "mainloop.h"
-#include "pixelbuffer.h"
+#include "pixelview.h"
 #include <memory>
 #include "color.h"
 
@@ -278,26 +278,6 @@ public:
 	}
 };
 
-class App: public IApp {
-
-	std::shared_ptr<PixelBuffer> pixelBuffer;
-	std::shared_ptr<Fireworks> fireworks;
-
-public:
-	App() {
-		fireworks = make_shared<Fireworks>();
-		pixelBuffer = make_shared<PixelBuffer>(fireworks, SCREEN_W, SCREEN_H);
-	}
-
-	void draw(const GraphicsContext &gc) override {
-		pixelBuffer->draw(gc);
-	};
-
-	void update() override {
-		fireworks->update();
-	}
-};
-
 int main(int argc, char** argv) {
 	MainLoop mainloop;
 	srand(time(nullptr));
@@ -308,8 +288,9 @@ int main(int argc, char** argv) {
 		.setPreferredDisplaySize(1280, 800);
 
 	if (!mainloop.init(argc, argv)) {
-		App app;
-		mainloop.run(&app);
+		auto fireworks = make_shared<Fireworks>();
+		auto pixelBuffer = make_shared<PixelView>(fireworks, SCREEN_W, SCREEN_H);
+		mainloop.run(pixelBuffer.get());
 	}
 	return 0;
 }

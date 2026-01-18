@@ -60,7 +60,7 @@ public:
 	}
 };
 
-class App : public IApp {
+class App : public IComponent {
 	list<Sprite> sprites;
 public:
 

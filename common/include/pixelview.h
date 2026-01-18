@@ -3,29 +3,28 @@
 #include <memory>
 #include "graphicscontext.h"
 #include <allegro5/allegro.h>
+#include "icomponent.h"
 
-class IComponent {
-public:
-	virtual void draw(const GraphicsContext &gc) = 0;
-	virtual void handleEvent(ALLEGRO_EVENT &evt) {}
-};
-
-// TODO: inherit from Component...
-class PixelBuffer: public IComponent {
+/**
+ * A buffered viewport,
+ * that stretches & letterboxes a lowres view onto a higher resolution display.
+ * useful for low-resolution pixel art games.
+ */
+class PixelView: public IComponent {
 private:
 	std::shared_ptr<IComponent> childComponent;
 	int w;
 	int h;
 	ALLEGRO_BITMAP *buffer;
 public:
-	PixelBuffer(std::shared_ptr<IComponent> cc, 
+	PixelView(std::shared_ptr<IComponent> cc, 
 		int _w, 
 		int _h,
 		bool maintainAspectRatio = false,
 		bool integralScaling = false,
 		bool useBuffer = true
 	);
-	virtual ~PixelBuffer();
+	virtual ~PixelView();
 	virtual void draw(const GraphicsContext &gc) override;
 
 	template <typename V>
@@ -34,5 +33,7 @@ public:
 		y = y * h / al_get_display_height(al_get_current_display());
 	}
 
-	virtual void handleEvent(ALLEGRO_EVENT &event) override;	
+	virtual void handleEvent(ALLEGRO_EVENT &event) override;
+	virtual void update() override;
+	virtual bool isAlive() const override;
 };

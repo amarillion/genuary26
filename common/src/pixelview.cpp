@@ -1,13 +1,14 @@
-#include "pixelbuffer.h"
+#include "pixelview.h"
 #include "color.h"
 
-PixelBuffer::PixelBuffer(std::shared_ptr<IComponent> cc, 
+PixelView::PixelView(std::shared_ptr<IComponent> cc, 
 	int _w, 
 	int _h,
 	bool maintainAspectRatio,
 	bool integralScaling,
 	bool useBuffer
 ): childComponent(cc), w(_w), h(_h) {
+	assert(childComponent);
 	buffer = al_create_bitmap(_w, _h);
 	
 	ALLEGRO_BITMAP *prev = al_get_target_bitmap();
@@ -16,11 +17,11 @@ PixelBuffer::PixelBuffer(std::shared_ptr<IComponent> cc,
 	al_set_target_bitmap(prev);
 }
 
-PixelBuffer::~PixelBuffer() {
+PixelView::~PixelView() {
 	al_destroy_bitmap(buffer);
 }
 
-void PixelBuffer::draw(const GraphicsContext &gc) {
+void PixelView::draw(const GraphicsContext &gc) {
 	GraphicsContext childContext;
 	childContext.xofst = gc.xofst;
 	childContext.yofst = gc.yofst;
@@ -35,11 +36,14 @@ void PixelBuffer::draw(const GraphicsContext &gc) {
 	al_draw_scaled_bitmap(buffer, 0, 0, w, h, 0, 0, dw, dh, 0);
 }
 
-void PixelBuffer::handleEvent(ALLEGRO_EVENT &event) {
+void PixelView::handleEvent(ALLEGRO_EVENT &event) {
 	switch(event.type) {
+		case ALLEGRO_EVENT_MOUSE_AXES:
 		case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
 		case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-		case ALLEGRO_EVENT_MOUSE_AXES: {
+		case ALLEGRO_EVENT_MOUSE_ENTER_DISPLAY:
+		case ALLEGRO_EVENT_MOUSE_LEAVE_DISPLAY:
+		case ALLEGRO_EVENT_MOUSE_WARPED: {
 			adjustMickey(event.mouse.x, event.mouse.y);
 			childComponent->handleEvent(event);
 			break;
@@ -56,4 +60,12 @@ void PixelBuffer::handleEvent(ALLEGRO_EVENT &event) {
 			childComponent->handleEvent(event);
 			break;
 	}
+}
+
+void PixelView::update() {
+	childComponent->update();
+}
+
+bool PixelView::isAlive() const {
+	return childComponent->isAlive();
 }

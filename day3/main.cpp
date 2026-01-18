@@ -15,7 +15,7 @@ int w, h;
 
 double PHI = sqrt(5.0f) / 2.0f + 0.5f; // golden ratio
 
-class App : public IApp {
+class App : public IComponent {
 public:
 
 	int frame = 0;

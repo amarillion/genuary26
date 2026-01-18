@@ -298,10 +298,6 @@ int MainLoop::initDisplay()
 	}
 
 
-	// set w, h equal to the actual display dimension
-	w = al_get_display_width(display);
-	h = al_get_display_height(display);
-
 	al_set_target_backbuffer(display);
 
 	buffer = al_get_backbuffer(display);
@@ -346,13 +342,13 @@ void MainLoop::logEndTime(const string &stage)
 }
 #endif
 
-void MainLoop::pumpMessages(IApp *app)
+void MainLoop::pumpMessages(IComponent *app)
 {
-	bool done = false;
+	bool quit = false;
 	bool need_redraw = true;
 
 	ALLEGRO_EVENT event;
-	while (!done)
+	while (!quit)
 	{
 		al_wait_for_event(equeue, &event);
 
@@ -364,8 +360,8 @@ void MainLoop::pumpMessages(IApp *app)
 				logStartTime ("Update");
 #endif
 				app->update();
-				if (app->isDone()) {
-					done = true;
+				if (!app->isAlive()) {
+					quit = true;
 				}
 #ifdef USE_MONITORING
 				logEndTime ("Update");
@@ -374,7 +370,7 @@ void MainLoop::pumpMessages(IApp *app)
 				break;
 			}
 			case ALLEGRO_EVENT_DISPLAY_CLOSE: {
-				done = true;
+				quit = true;
 				break;
 			}
 			case ALLEGRO_EVENT_DISPLAY_SWITCH_IN: {
@@ -383,15 +379,16 @@ void MainLoop::pumpMessages(IApp *app)
 			}
 			case ALLEGRO_EVENT_DISPLAY_RESIZE: {
 				al_acknowledge_resize(event.display.source);
-				w = al_get_display_width(event.display.source);
-				h = al_get_display_height(event.display.source);
-				app->handleEvent(event);				
+				app->handleEvent(event);
 				need_redraw = true;
 				break;
 			}
+			case ALLEGRO_EVENT_MOUSE_AXES:
 			case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
 			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-			case ALLEGRO_EVENT_MOUSE_AXES:
+			case ALLEGRO_EVENT_MOUSE_ENTER_DISPLAY:
+			case ALLEGRO_EVENT_MOUSE_LEAVE_DISPLAY:
+			case ALLEGRO_EVENT_MOUSE_WARPED:
 			case ALLEGRO_EVENT_TOUCH_BEGIN:
 			case ALLEGRO_EVENT_TOUCH_END:
 			case ALLEGRO_EVENT_TOUCH_MOVE:
@@ -404,7 +401,7 @@ void MainLoop::pumpMessages(IApp *app)
 			case ALLEGRO_EVENT_KEY_CHAR: {
 #ifdef DEBUG
 				if (event.keyboard.keycode == ALLEGRO_KEY_F10) {
-					done = true;
+					quit = true;
 					break;
 				}
 #endif
@@ -447,7 +444,7 @@ void MainLoop::pumpMessages(IApp *app)
 	}
 }
 
-void MainLoop::run(IApp *app) {
+void MainLoop::run(IComponent *app) {
 #ifdef USE_MONITORING
 	t0 = Clock::now();
 #endif

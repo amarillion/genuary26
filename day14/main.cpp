@@ -19,7 +19,7 @@ constexpr int MARGINY = (SCREEN_H - (SCALE * ROOT)) / 2;
 
 using namespace std;
 
-class App : public IApp {
+class App : public IComponent {
 private:
 	ALLEGRO_COLOR SQUARE_COLORS[BASE];
 	unique_ptr<IPartridgeSolver> solver = IPartridgeSolver::newInstance(true);

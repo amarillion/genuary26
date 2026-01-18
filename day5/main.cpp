@@ -14,14 +14,14 @@ struct Vertex {
 	float y;
 };
 
-class App : public IApp {
+class App : public IComponent {
 public:
 
 	int w, h;
 
 	void init() {
-		w = MainLoop::getMainLoop()->getw();
-		h = MainLoop::getMainLoop()->geth();
+		w = al_get_display_width(al_get_current_display());
+		h = al_get_display_height(al_get_current_display());
 	}
 
 	void update() override {

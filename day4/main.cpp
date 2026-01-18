@@ -6,7 +6,8 @@
 
 #include <list>
 #include <cmath>
-#include "pixelbuffer.h"
+#include "pixelview.h"
+#include "icomponent.h"
 
 using namespace std;
 
@@ -108,38 +109,8 @@ public:
 	}
 
 	virtual ~Day5() {}
-};
 
-
-class App : public IApp {
-public:
-
-	shared_ptr<PixelBuffer> pixelBuffer = nullptr;
-	shared_ptr<Day5> day5 = nullptr;
-
-	int w, h;
-
-	void init() {
-		day5 = make_shared<Day5>();
-		pixelBuffer = make_shared<PixelBuffer>(day5, 256, 192);
-		// w = MainLoop::getMainLoop()->getw();
-		// h = MainLoop::getMainLoop()->geth();
-
-		// due to frequent use of GET_PIXEL, we need a memory buffer.
-		// al_set_new_bitmap_flags(ALLEGRO_MEMORY_BITMAP);
-		// buf = al_create_bitmap(256, 192);
-		// al_set_target_bitmap(buf);
-		// al_clear_to_color(bg);
-	}
-
-	virtual void update() override {}
-
-	virtual void draw(const GraphicsContext &gc) override { 
-		pixelBuffer->draw(gc);
-	}
-
-	virtual ~App() {
-	}
+	void update() override {}
 };
 
 int main(int argc, const char *const *argv)
@@ -154,9 +125,10 @@ int main(int argc, const char *const *argv)
 		.setPreferredDisplaySize(1024, 768);
 
 	if (!mainloop.init(argc, argv)) {
-		App app;
-		app.init();
-		mainloop.run(&app);
+		
+		auto app = make_shared<Day5>();
+		auto pixelBuffer = make_shared<PixelView>(app, 256, 192);
+		mainloop.run(pixelBuffer.get());
 	}
 	return 0;
 }
