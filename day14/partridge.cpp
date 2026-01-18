@@ -57,15 +57,7 @@ public:
 	void step() {
 		if (placed.size() == squares.size()) { return; } // DONE! 
 		
-		if (top->size() == 0) {
-			// pop top from unused.
-			assert(top > unused.begin());
-			clearGrid(placed.back());
-			remain.push_back(placed.back().msize);
-			placed.pop_back();
-			top--;
-		} 
-		else {
+		if (top->size() != 0) {
 			auto next = top->back();
 			top->pop_back();
 
@@ -89,15 +81,16 @@ public:
 						printf("- %02i square %i at (%i, %i)\n", i, sq.msize, sq.mx, sq.my);
 					}
 				}
+				return;
 			}
-			else if (top->size() == 0) {
-				// pop top from unused.
-				assert(top > unused.begin());
-				clearGrid(placed.back());
-				remain.push_back(placed.back().msize);
-				placed.pop_back();
-				top--;
-			}
+		}
+		if (top->size() == 0) {
+			// pop top from unused.
+			assert(top > unused.begin());
+			clearGrid(placed.back());
+			remain.push_back(placed.back().msize);
+			placed.pop_back();
+			top--;
 		}
 	}
 
