@@ -53,13 +53,13 @@ public:
 		al_draw_rectangle(MARGINX, MARGINY, MARGINX + ROOT * SCALE, MARGINY + ROOT * SCALE, DARK_GREY, 1.0);
 		for (const auto &sq : solver->getPlaced()) {
 			al_draw_filled_rectangle(
-				MARGINX + sq.mx * SCALE, MARGINY + sq.my * SCALE,
-				MARGINX + (sq.mx + sq.msize) * SCALE - 1, MARGINY + (sq.my + sq.msize) * SCALE - 1,
+				MARGINX + sq.getx() * SCALE, MARGINY + sq.gety() * SCALE,
+				MARGINX + (sq.getx() + sq.msize) * SCALE - 1, MARGINY + (sq.gety() + sq.msize) * SCALE - 1,
 				SQUARE_COLORS[sq.msize - 1]
 			);
 			al_draw_rectangle(
-				MARGINX + sq.mx * SCALE, MARGINY + sq.my * SCALE,
-				MARGINX + (sq.mx + sq.msize) * SCALE - 1, MARGINY + (sq.my + sq.msize) * SCALE - 1,
+				MARGINX + sq.getx() * SCALE, MARGINY + sq.gety() * SCALE,
+				MARGINX + (sq.getx() + sq.msize) * SCALE - 1, MARGINY + (sq.gety() + sq.msize) * SCALE - 1,
 				BLACK, 1.0
 			);
 		}

@@ -1,9 +1,9 @@
 #include "partridge.h"
 #include <vector>
-#include "map2d.h"
 #include <random>
 #include <algorithm>
 #include <array>
+#include <cassert>
 
 using namespace std;
 
@@ -30,12 +30,13 @@ private:
 	vector<int> remain;
 	vector<vector<int>> unused;
 	vector<vector<int>>::iterator top;
-
-	Map2D<bool> grid { ROOT, ROOT, false };
+	array<bool, ROOT * ROOT> grid;
 public:
 	vector<Square> placed;
 
 	PartridgeSolver(vector<int> startPos) {
+		fill(grid.begin(), grid.end(), false);
+
 		for(int i = 0; i < ROOT + 1; ++i) {
 			vector<int> row;
 			row.reserve(BASE);
@@ -61,14 +62,13 @@ public:
 			auto next = top->back();
 			top->pop_back();
 
-			int mx, my;
-			scanEmpty(grid, next, mx, my);
+			int coord = scanEmpty(next);
 
-			if (mx >= 0 && my >= 0) {
-				Square sq { mx, my, next };
-				placed.push_back(sq);
-				setGrid(sq);
-				removeFirst(remain, sq.msize);
+			if (coord >= 0) {
+				// Square sq { next, coord };
+				const auto &nextSq = placed.emplace_back(next, coord);
+				setGrid(nextSq);
+				removeFirst(remain, next);
 				top++;
 				nextRow();
 
@@ -78,7 +78,7 @@ public:
 					int i = 0;
 					for (const auto &sq : placed) {
 						i++;
-						printf("- %02i square %i at (%i, %i)\n", i, sq.msize, sq.mx, sq.my);
+						printf("- %02i square %i at (%i, %i)\n", i, sq.msize, sq.getx(), sq.gety());
 					}
 				}
 				return;
@@ -98,8 +98,6 @@ private:
 	void nextRow() {
 		assert(top != unused.end());
 		top->clear();
-		// vector<int> new_row;
-		// new_row.reserve(BASE);
 
 		array<bool, BASE> seen;
 		seen.fill(false);
@@ -112,14 +110,13 @@ private:
 		}
 		// because we pop from the back, to presevere order we reverse first.
 		reverse(top->begin(), top->end());
-		// unused.push_back(new_row);
 	}
 
 	void setGrid(const Square &sq, bool value = true) {
-		for (int x = 0; x < sq.msize; ++x) {
-			for (int y = 0; y < sq.msize; ++y) {
-				grid(x + sq.mx, y + sq.my) = value;
-			}
+		int coord = sq.coord;
+		for (int y = 0; y < sq.msize; ++y, coord += ROOT) {
+			// std::fill will use memset if possible...
+			std::fill(grid.begin() + coord, grid.begin() + coord + sq.msize, value);
 		}
 	}
 
@@ -133,55 +130,57 @@ private:
 		vec.erase(it);
 	}
 
-	bool isGridEmptyAt(const Map2D<bool> &grid, int size, int x, int y) {
-		if (grid.get(x, y)) {
+	/**
+	 * Check if a square of `size` can be placed at `coord`.
+	 */
+	bool isGridEmptyAt(int size, int coord) {
+		if (grid[coord]) {
 			return false;
 		}
 		// scan top and left, since there are no placement gaps, that is enough
+		int hcoord = coord;
+		int vcoord = coord;
 		for (int i = 1; i < size; ++i) {
-			if (grid.get(x + i, y)) {
-				return false;
-			}
-			if (grid.get(x, y + i)) {
-				return false;
-			}
+			hcoord += 1;
+			if (grid[hcoord]) { return false; }
+			vcoord += ROOT;
+			if (grid[vcoord]) { return false; }
 		}
 		return true;
 	}
 
-	void scanEmpty(const Map2D<bool> &grid, int size, int &rx, int &ry) {
-		int x = placed.size() == 0 ? 0 : placed.back().mx;
-		int y = placed.size() == 0 ? 0 : placed.back().my + placed.back().msize;
-		findEmptyCell(grid, x, y);
-		if (x >= 0 && y >= 0) {
+	/** 
+	 * Find the next empty cell in the grid, and check if a square of `size` fits there.
+	 * If yes, return the coordinate as (x + y * ROOT).
+	 * If not, return -1.
+	 */
+	int scanEmpty(int size) {
+		int coord = placed.size() == 0 ? 0 : placed.back().coord + placed.back().msize;
+		findEmptyCell(coord);
+		if (coord >= 0) {
+			int x = coord % ROOT;
+			int y = coord / ROOT;
 			if (x + size <= ROOT && y + size <= ROOT) {
-				if (isGridEmptyAt(grid, size, x, y)) {
-					rx = x;
-					ry = y;
-					return;
+				if (isGridEmptyAt(size, coord)) {
+					return coord;
 				}
 			}
 		}
-		rx = -1;
-		ry = -1;
+		return -1;
 	}
 
-	void findEmptyCell(const Map2D<bool> &grid, int &rx, int &ry) {
-		// as an optimization, start scanning from rx, ry...
-		int x = rx;
-		int y = ry;
-		for (; x < ROOT; ++x) {
-			for (; y < ROOT; ++y) {
-				if (!grid(x, y)) {
-					rx = x;
-					ry = y;
-					return;
-				}
+	/**
+	 * Scan, starting at `coord`, for an empty cell.
+	 * Scan rows first, columns second.
+	 * Return -1 if no empty cell is found.
+	 */
+	void findEmptyCell(int &coord) {
+		for (; coord < ROOT * ROOT; ++coord) {
+			if (!grid[coord]) {
+				return;
 			}
-			y = 0;
 		}
-		rx = -1;
-		ry = -1;
+		coord = -1;
 	}
 
 	std::vector<Square> getPlaced() {

@@ -1,14 +1,19 @@
 #include <memory>
 #include <vector>
 
-struct Square {
-	int mx;
-	int my;	
-	int msize;
-};
-
 constexpr int ROOT = 45;
 constexpr int BASE = 9;
+
+struct Square {
+	int msize;
+	int coord;
+	int getx() const {
+		return coord % ROOT;
+	}
+	int gety() const {
+		return coord / ROOT;
+	}
+};
 
 class IPartridgeSolver {
 public:
