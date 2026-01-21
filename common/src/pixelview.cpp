@@ -4,13 +4,19 @@
 PixelView::PixelView(std::shared_ptr<IComponent> cc, 
 	int _w, 
 	int _h,
-	bool maintainAspectRatio,
-	bool integralScaling,
-	bool useBuffer
-): childComponent(cc), w(_w), h(_h) {
+	bool _maintainAspectRatio
+) : 
+	childComponent(cc), 
+	w(_w), h(_h), 
+	maintainAspectRatio(_maintainAspectRatio)
+{
 	assert(childComponent);
 	buffer = al_create_bitmap(_w, _h);
 	
+	int dw = al_get_display_width(al_get_current_display());
+	int dh = al_get_display_height(al_get_current_display());
+	updateSize(dw, dh);
+
 	ALLEGRO_BITMAP *prev = al_get_target_bitmap();
 	al_set_target_bitmap(buffer);
 	al_clear_to_color(MAGIC_PINK);
@@ -22,18 +28,21 @@ PixelView::~PixelView() {
 }
 
 void PixelView::draw(const GraphicsContext &gc) {
+	// because we start a new buffer, ignore xofst / yofst from parent gc
+
 	GraphicsContext childContext;
-	childContext.xofst = gc.xofst;
-	childContext.yofst = gc.yofst;
+	childContext.xofst = 0; 
+	childContext.yofst = 0;
 	childContext.buffer = buffer;
 	
 	al_set_target_bitmap(buffer);
 	childComponent->draw(childContext);
 	al_set_target_bitmap(gc.buffer);
 
-	int dw = al_get_bitmap_width(gc.buffer);
-	int dh = al_get_bitmap_height(gc.buffer);
-	al_draw_scaled_bitmap(buffer, 0, 0, w, h, 0, 0, dw, dh, 0);
+	if (borderDirty) {
+		al_clear_to_color(BLACK);
+	}
+	al_draw_scaled_bitmap(buffer, 0, 0, w, h, xofst, yofst, destw, desth, 0);
 }
 
 void PixelView::handleEvent(ALLEGRO_EVENT &event) {
@@ -56,6 +65,9 @@ void PixelView::handleEvent(ALLEGRO_EVENT &event) {
 			childComponent->handleEvent(event);
 			break;
 		}
+		case ALLEGRO_EVENT_DISPLAY_RESIZE:
+			updateSize(event.display.width, event.display.height);
+			break;
 		default:
 			childComponent->handleEvent(event);
 			break;
@@ -68,4 +80,37 @@ void PixelView::update() {
 
 bool PixelView::isAlive() const {
 	return childComponent->isAlive();
+}
+
+void PixelView::updateSize(int dw, int dh) {
+	borderDirty = true;
+	if (maintainAspectRatio) {
+		float aspectRatio = (float)w / (float)h;
+		float displayAspectRatio = (float)dw / (float)dh;
+
+		// calculate letterbox...
+		if (displayAspectRatio > aspectRatio) {
+			int margin = dw - (dh * aspectRatio);
+			// display is wider, black bars on the sides
+			destw = dw - margin;
+			desth = dh;
+			xofst = margin / 2;
+			yofst = 0;
+		}
+		else {
+			// black bars above / below
+			int margin = dh - (dw / aspectRatio);
+			destw = dw;
+			desth = dh - margin;
+			xofst = 0;
+			yofst = margin / 2;
+		}
+	}
+	else {
+		// don't maintain aspect ratio
+		xofst = 0;
+		yofst = 0;
+		destw = dw;
+		desth = dh;
+	}
 }

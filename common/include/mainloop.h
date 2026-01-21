@@ -64,6 +64,9 @@ private:
 	int initDisplay();
 
 	std::vector<std::string> options;
+	
+	/** Only valid during call to run() */
+	IComponent *app = nullptr;
 #ifdef USE_MONITORING
 	Clock::time_point t0; // time since start of program
 	Clock::time_point t1; // time since start of update loop

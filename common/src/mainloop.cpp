@@ -444,7 +444,8 @@ void MainLoop::pumpMessages(IComponent *app)
 	}
 }
 
-void MainLoop::run(IComponent *app) {
+void MainLoop::run(IComponent *_app) {
+	app = _app;
 #ifdef USE_MONITORING
 	t0 = Clock::now();
 #endif
@@ -482,6 +483,8 @@ void MainLoop::run(IComponent *app) {
 
 	// stop sound - important that this is done before the ALLEGRO_AUDIO_STREAM resources are destroyed
 	_audio->done();
+
+	app = nullptr;
 }
 
 MainLoop::~MainLoop() {
@@ -516,13 +519,27 @@ void MainLoop::toggleWindowed()
 
 	//TODO: reload all fonts... for FULLSCREEN - (not FULLSCREEN_WINDOW)
 
+	al_unregister_event_source(equeue, al_get_display_event_source(display));
 	al_destroy_display(display);
 	initDisplay();
+	// re-register new display as event source
+	al_register_event_source(equeue, al_get_display_event_source(display));
 
 	set_config_int (config, "twist", "windowed", screenMode);
 	
 	// convert back to video bitmaps
 	al_convert_memory_bitmaps();
+
+	// app is only defined during run()
+	if (app) {
+		ALLEGRO_EVENT event;
+		event.type = ALLEGRO_EVENT_DISPLAY_RESIZE;
+		event.display.width = al_get_display_width(display);
+		event.display.height = al_get_display_height(display);
+		event.display.source = display;
+		event.display.orientation = al_get_display_orientation(display);
+		app->handleEvent(event);
+	}
 }
 
 string MainLoop::getUserId() {
