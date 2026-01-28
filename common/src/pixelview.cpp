@@ -1,5 +1,6 @@
 #include "pixelview.h"
 #include "color.h"
+#include "point.h"
 
 PixelView::PixelView(std::shared_ptr<IComponent> cc, 
 	int _w, 
@@ -15,7 +16,7 @@ PixelView::PixelView(std::shared_ptr<IComponent> cc,
 	
 	int dw = al_get_display_width(al_get_current_display());
 	int dh = al_get_display_height(al_get_current_display());
-	updateSize(dw, dh);
+	setSize(Point(dw, dh));
 
 	ALLEGRO_BITMAP *prev = al_get_target_bitmap();
 	al_set_target_bitmap(buffer);
@@ -28,11 +29,12 @@ PixelView::~PixelView() {
 }
 
 void PixelView::draw(const GraphicsContext &gc) {
-	// because we start a new buffer, ignore xofst / yofst from parent gc
-
-	GraphicsContext childContext;
+	GraphicsContext childContext = gc;
+	// reset xofst / yofst from parent gc
 	childContext.xofst = 0; 
 	childContext.yofst = 0;
+	childContext.viewWidth = al_get_bitmap_width(buffer);
+	childContext.viewHeight = al_get_bitmap_height(buffer);
 	childContext.buffer = buffer;
 	
 	al_set_target_bitmap(buffer);
@@ -65,9 +67,6 @@ void PixelView::handleEvent(ALLEGRO_EVENT &event) {
 			childComponent->handleEvent(event);
 			break;
 		}
-		case ALLEGRO_EVENT_DISPLAY_RESIZE:
-			updateSize(event.display.width, event.display.height);
-			break;
 		default:
 			childComponent->handleEvent(event);
 			break;
@@ -82,7 +81,10 @@ bool PixelView::isAlive() const {
 	return childComponent->isAlive();
 }
 
-void PixelView::updateSize(int dw, int dh) {
+void PixelView::setSize(const Point &dim) {
+	int dw = dim.x();
+	int dh = dim.y();
+
 	borderDirty = true;
 	if (maintainAspectRatio) {
 		float aspectRatio = (float)w / (float)h;
@@ -113,4 +115,6 @@ void PixelView::updateSize(int dw, int dh) {
 		destw = dw;
 		desth = dh;
 	}
+
+	childComponent->setSize(Point(w, h));
 }

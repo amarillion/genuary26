@@ -22,7 +22,6 @@ private:
 	bool maintainAspectRatio;
 	bool borderDirty = true;
 	ALLEGRO_BITMAP *buffer;
-	void updateSize(int dw, int dh);
 public:
 	/**
 	 * Constructor
@@ -66,4 +65,6 @@ public:
 	 * Forwards to child component.
 	 */
 	virtual bool isAlive() const override;
+
+	virtual void setSize(const Point &dim) override;
 };

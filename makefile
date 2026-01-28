@@ -7,7 +7,7 @@ BUILD=DEBUG
 TARGET=LINUX
 
 CCFLAGS = -std=c++20 -Icommon/include
-CFLAGS = -W -Wall -Wno-unused -DUSE_MOUSE
+CFLAGS = -W -Wall -Wno-unused
 LFLAGS =
 LIBS =
 

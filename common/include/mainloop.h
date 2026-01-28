@@ -11,6 +11,10 @@
 #include "graphicscontext.h"
 #include "icomponent.h"
 
+#ifdef USE_MOUSE
+#error "USE_MOUSE" is deprecated, use MainLoop.setMouseEnabled(true) instead.
+#endif
+
 #define TWIST_START_EVENT 1024    /* value for event.type - originally in widget.h */
 
 #ifdef USE_MONITORING
@@ -59,6 +63,7 @@ private:
 	int logicIntervalMsec;
 
 	bool isResizableWindow = false;
+	bool mouseEnabled = false;
 
 	static MainLoop *instance;
 	int initDisplay();
@@ -79,7 +84,6 @@ private:
 protected:
 	ALLEGRO_CONFIG *config;
 	bool fpsOn;
-
 	void pumpMessages(IComponent *app);
 public:
 	bool isSmokeTest() { return smokeTest; }
@@ -93,7 +97,6 @@ public:
 	ALLEGRO_CONFIG *getConfig() { return config; }
 	
 	int getMsecCounter () { return al_get_timer_count(logicTimer) * logicIntervalMsec; }
-	void setFpsOn (bool value) { fpsOn = value; }
 
 	MainLoop();
 
@@ -101,7 +104,11 @@ public:
 	MainLoop &setAppName(const char *_appname);
 	MainLoop &setConfigFilename(const char *_configFilename);
 	MainLoop &setLogicIntervalMsec (int value) { logicIntervalMsec = value; return *this; }
+	MainLoop &setFpsOn(bool value) { fpsOn = value; return *this; }
 	
+	/** Initalize allegro mouse routines and process mouse events on the message queue */
+	MainLoop &setMouseEnabled(bool value) { mouseEnabled = value; return *this; }
+
 	/** Try to make a display of this size (might not be respected e.g. in full screen mode) */
 	MainLoop &setPreferredDisplaySize (int w, int h) { prefDisplaySize = Point(w, h); return *this; }
 

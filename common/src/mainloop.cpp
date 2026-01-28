@@ -10,6 +10,7 @@
 #include <allegro5/allegro_primitives.h>
 
 #include <iostream>
+#include "point.h"
 
 using namespace std;
 
@@ -207,15 +208,14 @@ int MainLoop::init(int argc, const char *const *argv)
 		return 1;
 	}
 
-#ifdef USE_MOUSE
-	if (!al_install_mouse())
-	{
-		allegro_message ("could not install mouse");
-		//set_gfx_mode (GFX_TEXT, 0, 0, 0, 0); //TODO....
-//		allegro_exit(); //TODO.. obsolete?
-		return 1;
+	if (mouseEnabled) {
+		if (!al_install_mouse())
+		{
+			allegro_message ("could not install mouse");
+			return 1;
+		}
 	}
-#endif
+
 #if defined(ALLEGRO_ANDROID) || defined(__EMSCRIPTEN__)
 	if (!al_install_touch_input()) {
 		// no touch driver available, ignore
@@ -344,6 +344,10 @@ void MainLoop::logEndTime(const string &stage)
 
 void MainLoop::pumpMessages(IComponent *app)
 {
+	int w = al_get_display_width(al_get_current_display());
+	int h = al_get_display_height(al_get_current_display());
+	app->setSize(Point(w, h));
+
 	bool quit = false;
 	bool need_redraw = true;
 
@@ -379,7 +383,7 @@ void MainLoop::pumpMessages(IComponent *app)
 			}
 			case ALLEGRO_EVENT_DISPLAY_RESIZE: {
 				al_acknowledge_resize(event.display.source);
-				app->handleEvent(event);
+				app->setSize(Point(event.display.width, event.display.height));
 				need_redraw = true;
 				break;
 			}
@@ -420,7 +424,11 @@ void MainLoop::pumpMessages(IComponent *app)
 			gc.buffer = buffer;
 			gc.xofst = 0;
 			gc.yofst = 0;
-
+			gc.viewWidth = w;
+			gc.viewHeight = h;
+			gc.displayWidth = w;
+			gc.displayHeight = h;
+			
 			al_set_target_bitmap(buffer);
 			app->draw(gc);
 			need_redraw = false;
@@ -456,9 +464,10 @@ void MainLoop::run(IComponent *_app) {
 	equeue = al_create_event_queue();
 	al_register_event_source(equeue, al_get_keyboard_event_source());
 	al_register_event_source(equeue, al_get_display_event_source(display));
-#ifdef USE_MOUSE
-	al_register_event_source(equeue, al_get_mouse_event_source());
-#endif
+
+	if (al_is_mouse_installed()) {
+		al_register_event_source(equeue, al_get_mouse_event_source());
+	}
 #if defined(ALLEGRO_ANDROID) || defined(__EMSCRIPTEN__)
 	if (al_is_touch_input_installed()) {
 		al_register_event_source(equeue, al_get_touch_input_event_source());
@@ -532,13 +541,10 @@ void MainLoop::toggleWindowed()
 
 	// app is only defined during run()
 	if (app) {
-		ALLEGRO_EVENT event;
-		event.type = ALLEGRO_EVENT_DISPLAY_RESIZE;
-		event.display.width = al_get_display_width(display);
-		event.display.height = al_get_display_height(display);
-		event.display.source = display;
-		event.display.orientation = al_get_display_orientation(display);
-		app->handleEvent(event);
+		app->setSize(Point(
+			al_get_display_width(display),
+			al_get_display_height(display)
+		));
 	}
 }
 
