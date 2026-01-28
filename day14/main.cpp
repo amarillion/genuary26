@@ -65,6 +65,18 @@ public:
 		}
 	}
 
+	bool quit = false;
+
+	bool isAlive() const override {
+		return !quit;
+	}
+
+	void handleEvent(ALLEGRO_EVENT &event) override {
+		if (event.type == ALLEGRO_EVENT_KEY_DOWN && event.keyboard.keycode == ALLEGRO_KEY_ESCAPE) {
+			quit = true;
+		}
+	}
+
 	virtual ~App() {}
 };
 
