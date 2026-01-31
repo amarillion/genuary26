@@ -12,6 +12,10 @@
 
 using namespace std;
 
+int randomInt(int val) {
+	return rand() % val;
+}
+
 enum Edge {
 	LEFT, RIGHT, VERTICAL
 };
@@ -24,10 +28,10 @@ struct Triangle {
 
 struct TriangularMap {
 public:
-	Map2D<Triangle> map;
 	int base;
-
-	TriangularMap(int base) : base(base) {
+	Map2D<Triangle> map;
+	
+	TriangularMap(int base) : base(base), map(base * 2, base) {
 	}
 
 	bool isValid(const Point &pos) {
@@ -72,7 +76,6 @@ struct TriangularGrid {
 			(float)((p.x() * 2.0) - rowLen + 1.0) * pxBase / 4.0f,
 			(float)(p.y()) * pxHeight
 		);
-		// printf("Point: %i, %i; rowLen: %i; result: %f, %f\n", p.x(), p.y(), rowLen, result.x(), result.y());
 		result += origin;
 		return result;
 	}
@@ -97,51 +100,90 @@ struct TriangularGrid {
 	}
 };
 
+void copyAndScale(const TriangularMap &src, TriangularMap &dest) {
+	assert(dest.base % src.base == 0);
+	int scale = dest.base / src.base;
+	int scale2 = scale * 2;
+	for (int dy = 0; dy < dest.base; ++dy) {
+		for (int dx = 0; dx < TriangularMap::rowLen(dy); ++dx) {
+			int sy = dy / scale;
+			int sx = dx / scale; sx -= (sx % 2); // round down to nearest even number
+			bool diagonal = (dx % scale2) > ((dy % scale) * 2);
+			if (diagonal) sx++;
+			const Triangle &st = src.map.get(sx, sy);
+			Triangle &dt = dest.map.get(dx, dy);
+			dt.filled = st.filled;
+		}
+	}
+}
+
 class Day26 : public IComponent {
 public:
 	const int BASE = 4;
-	const float SCALE = 768.0f;
-
+	const float SCALE = 1024.0f;
 	Vec2f origin = { (float)al_get_display_width(al_get_current_display()) / 2.0f, 40.0f };
-	TriangularGrid grid { origin, BASE, SCALE / 4.0f };
-	TriangularMap map { BASE };
+	
+	TriangularGrid grid[4] {
+		{ origin, BASE, SCALE / 4.0f },
+		{ origin, BASE * 4, SCALE / 16.0f },
+		{ origin, BASE * 16, SCALE / 64.0f },
+		{ origin, BASE * 64, SCALE / 256.0f },
+	};
+	
+	TriangularMap map[4] {
+		{ BASE },
+		{ BASE * 4 },
+		{ BASE * 16 },
+		{ BASE * 64 }
+	};
 
-	TriangularGrid grid2 { origin, BASE * 4, SCALE / 16.0f };
-	TriangularMap map2 { BASE * 4 };
-
-	TriangularGrid grid3 { origin, BASE * 16, SCALE / 64.0f };
-	TriangularMap map3 { BASE * 16 };
-
-	TriangularGrid grid4 { origin, BASE * 64, SCALE / 256.0f };
-	TriangularMap map4 { BASE * 64 };
+	int currentMap = 0;
 
 	void drawGrid(const TriangularGrid &grid, const TriangularMap & map, ALLEGRO_COLOR color) {
 		for (int y = 0; y < map.base; ++y) {
 			for (int x = 0; x < TriangularMap::rowLen(y); ++x) {
-				auto triangle = grid.triangleOutline(Point(x, y));
-				al_draw_triangle(
-					triangle[0].x(), triangle[0].y(),
-					triangle[1].x(), triangle[1].y(),
-					triangle[2].x(), triangle[2].y(),
-					color, 1.0
-				);
+				bool filled = map.map.get(x, y).filled;
+				if (filled) {
+					auto triangle = grid.triangleOutline(Point(x, y));
+					al_draw_filled_triangle(
+						triangle[0].x(), triangle[0].y(),
+						triangle[1].x(), triangle[1].y(),
+						triangle[2].x(), triangle[2].y(),
+						color
+					);
+				}
 			}
 		}
 	}
 
 	void draw(const GraphicsContext &gc) override {
-		// drawGrid(grid4, map4, GREY);
-		// drawGrid(grid3, map3, CYAN);
-		// drawGrid(grid2, map2, YELLOW);
-		drawGrid(grid, map, RED);
+		al_clear_to_color(BLACK);
+		drawGrid(grid[currentMap], map[currentMap], WHITE);
 	}
 
 	virtual ~Day26() {}
 
+	int frame = 0;
 	void update() override {
-		// fill / remove random triangles...
+		
+		if (frame % ((4-currentMap) * 5) == 1) {
+			int y = randomInt(map[currentMap].base);
+			int x = randomInt(TriangularMap::rowLen(y));
+		
+			Triangle &t = map[currentMap].map.get(x, y);
+			t.filled = !t.filled;
+		}
 
+		// fill / remove random triangles...
+		frame++;
 		// periodically, copy to next grid and increase level
+		if (frame % ((currentMap + 1) * 500) == 0) {
+			if (currentMap < 3) {
+				frame = 0;
+				copyAndScale(map[currentMap], map[currentMap+1]);
+				currentMap++;
+			}
+		}
 	}
 };
 
@@ -153,7 +195,7 @@ int main(int argc, const char *const *argv) {
 		.setTitle("Genuary26 Day 26")
 		.setAppName("Genuary26.26")
 		.setLogicIntervalMsec(17) // ~60fpx
-		.setPreferredDisplaySize(1280, 800);
+		.setPreferredDisplaySize(1280, 1080);
 
 	if (!mainloop.init(argc, argv)) {
 		auto app = make_shared<Day26>();
