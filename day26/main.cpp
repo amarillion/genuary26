@@ -50,9 +50,59 @@ public:
 		return pos.x() % 2 == 0;
 	}
 
-	vector<Point> getAdjacent(const Point &pos) {
-		vector<Point> result;
+	vector<tuple<Edge, Point>> getAdjacent(const Point &src) {
+		vector<tuple<Edge, Point>> result;
+		for (Edge e : { Edge::LEFT, Edge::RIGHT, Edge::VERTICAL }) {
+			Point dest = getNeighbor(src, e);
+			if (isValid(dest)) {
+				// if (!map[dest].filled) {
+				result.push_back(tuple<Edge, Point>(e, dest));
+				// }
+			}
+		}
 		return result;
+	}
+
+	Point getNeighbor(const Point &src, Edge e) {
+		switch(e) {
+			case LEFT: return Point(src.x() - 1, src.y());
+			case VERTICAL: 
+				if (isPointingUp(src)) {
+					return Point(src.x() + 1, src.y() + 1);
+				}
+				else {
+					return Point(src.x() - 1, src.y() - 1);
+				}
+			case RIGHT: return Point(src.x() + 1, src.y());
+		}
+		assert(false);
+	}
+
+	void link(const Point &src, Edge e, const Point &dest) {
+		assert(getNeighbor(src, e) == dest);
+
+		auto &tSrc = map[src];
+		auto &tDest = map[dest];
+
+		Edge reverse;
+		switch(e) {
+			case LEFT: reverse = RIGHT; break;
+			case RIGHT: reverse = LEFT; break;
+			case VERTICAL: reverse = VERTICAL; break; 
+		}
+
+		tSrc.filled = true;
+		tDest.filled = true;
+
+		tSrc.links.insert(e);
+		tDest.links.insert(reverse);
+	}
+
+	Point randomCell() {
+		//TODO: NOT uniformly distributed
+		int y = randomInt(base);
+		int x = randomInt(rowLen(y));
+		return Point(x, y);
 	}
 };
 
@@ -88,6 +138,7 @@ struct TriangularGrid {
 				top + Vec2f(pxBase_2, pxHeight), // BOTTOM-RIGHT
 				top + Vec2f(-pxBase_2, pxHeight) // BOTTOM-LEFT
 			};
+			// order: right, vertical, left
 		}
 		else {
 			result = {
@@ -95,8 +146,57 @@ struct TriangularGrid {
 				top + Vec2f(pxBase_2, 0), // TOP-RIGHT
 				top + Vec2f(0, pxHeight) // BOTTOM
 			};
+			// order: vertical, right, left
 		}
 		return result;
+	}
+};
+
+/**
+ * Step-wise maze generator using recursive backtracking
+ */
+template<typename N, typename E>
+class RecursiveBacktracker {
+	typedef function<vector<tuple<E, N>>(N)> AdjacencyFunc;
+	typedef function<void(N, E, N)> LinkFunc;
+
+	AdjacencyFunc getAdjacent;
+	LinkFunc link;
+	vector<N> open;
+	set<N> visited;
+
+public:
+	RecursiveBacktracker(N start, AdjacencyFunc getAdjacent, LinkFunc link): getAdjacent(getAdjacent), link(link) {
+		open.push_back(start);
+	}
+
+	void step() {
+		if (open.empty()) return;
+
+		N current = open.back();
+		
+		vector<tuple<E, N>> unvisitedAdjacents;
+		for (const auto &i : getAdjacent(current)) {
+			if (visited.contains(get<1>(i))) continue;
+			unvisitedAdjacents.push_back(i);
+		}
+
+		if (unvisitedAdjacents.empty()) {
+			open.pop_back();
+		}
+		else {
+			int idx = randomInt(unvisitedAdjacents.size());
+			auto &chosen = unvisitedAdjacents[idx]; 
+			N &dest = get<1>(chosen);
+			E &dir = get<0>(chosen); 
+			open.push_back(dest);
+			visited.insert(dest);
+			link(current, dir, dest);
+		}
+	}
+
+	bool isDone() {
+		return open.empty();
 	}
 };
 
@@ -137,20 +237,35 @@ public:
 		{ BASE * 64 }
 	};
 
-	int currentMap = 0;
+	int currentMap = 2;
 
 	void drawGrid(const TriangularGrid &grid, const TriangularMap & map, ALLEGRO_COLOR color) {
 		for (int y = 0; y < map.base; ++y) {
 			for (int x = 0; x < TriangularMap::rowLen(y); ++x) {
-				bool filled = map.map.get(x, y).filled;
-				if (filled) {
-					auto triangle = grid.triangleOutline(Point(x, y));
-					al_draw_filled_triangle(
-						triangle[0].x(), triangle[0].y(),
-						triangle[1].x(), triangle[1].y(),
-						triangle[2].x(), triangle[2].y(),
-						color
-					);
+				const auto &t = map.map.get(x, y);
+				if (t.filled) {
+					Point pos { x, y };
+					auto tCoords = grid.triangleOutline(pos);
+					// al_draw_filled_triangle(
+					// 	tCoords[0].x(), tCoords[0].y(),
+					// 	tCoords[1].x(), tCoords[1].y(),
+					// 	tCoords[2].x(), tCoords[2].y(),
+					// 	color
+					// );
+
+					array<Edge, 3> POINTING_UP_ORDER { Edge::RIGHT, Edge::VERTICAL, Edge::LEFT };
+					array<Edge, 3> POINTING_DOWN_ORDER { Edge::VERTICAL, Edge::RIGHT, Edge::LEFT };
+					
+					for (int i = 0; i < 3; ++i) {
+						Edge currentEdge = TriangularMap::isPointingUp(pos) ? POINTING_UP_ORDER[i] : POINTING_DOWN_ORDER[i];
+						if (!t.links.contains(currentEdge)) {
+							al_draw_line(
+								tCoords[i].x(), tCoords[i].y(),
+								tCoords[(i + 1) % 3].x(), tCoords[(i + 1) % 3].y(),
+								color, 1.0
+							);
+						}
+					}
 				}
 			}
 		}
@@ -163,27 +278,41 @@ public:
 
 	virtual ~Day26() {}
 
+	unique_ptr<RecursiveBacktracker<Point, Edge>> generator = nullptr;
+
+	bool first = true;
 	int frame = 0;
 	void update() override {
 		
-		if (frame % ((4-currentMap) * 5) == 1) {
-			int y = randomInt(map[currentMap].base);
-			int x = randomInt(TriangularMap::rowLen(y));
-		
-			Triangle &t = map[currentMap].map.get(x, y);
-			t.filled = !t.filled;
+		if (first) {
+			auto getAdjacent = [=, this](Point node){
+				return map[currentMap].getAdjacent(node);
+			};
+			auto link = [=, this](Point src, Edge e, Point dest){
+				map[currentMap].link(src, e, dest);
+			};
+			Point start = map[currentMap].randomCell();
+			generator = make_unique<RecursiveBacktracker<Point, Edge>>( start, getAdjacent, link );
+
+			// link(Point(0, 0), Edge::VERTICAL, Point(1, 1));
+			first = false;
 		}
 
 		// fill / remove random triangles...
 		frame++;
+		
+		if (generator) { generator->step(); }
+
 		// periodically, copy to next grid and increase level
-		if (frame % ((currentMap + 1) * 500) == 0) {
+		/*
+		if (generator.isDone()) {
 			if (currentMap < 3) {
 				frame = 0;
 				copyAndScale(map[currentMap], map[currentMap+1]);
 				currentMap++;
 			}
 		}
+		*/
 	}
 };
 
