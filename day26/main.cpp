@@ -23,6 +23,7 @@ enum Edge {
 struct Triangle {
 	Point pos;
 	bool filled;
+	bool visited;
 	set<Edge> links;
 };
 
@@ -55,9 +56,9 @@ public:
 		for (Edge e : { Edge::LEFT, Edge::RIGHT, Edge::VERTICAL }) {
 			Point dest = getNeighbor(src, e);
 			if (isValid(dest)) {
-				// if (!map[dest].filled) {
-				result.push_back(tuple<Edge, Point>(e, dest));
-				// }
+				if (!map[dest].filled) {
+					result.push_back(tuple<Edge, Point>(e, dest));
+				}
 			}
 		}
 		return result;
@@ -91,8 +92,8 @@ public:
 			case VERTICAL: reverse = VERTICAL; break; 
 		}
 
-		tSrc.filled = true;
-		tDest.filled = true;
+		tSrc.visited = true;
+		tDest.visited = true;
 
 		tSrc.links.insert(e);
 		tDest.links.insert(reverse);
@@ -100,9 +101,13 @@ public:
 
 	Point randomCell() {
 		//TODO: NOT uniformly distributed
-		int y = randomInt(base);
-		int x = randomInt(rowLen(y));
-		return Point(x, y);
+		Point result;
+		do {
+			int y = randomInt(base);
+			int x = randomInt(rowLen(y));
+			result = Point(x, y);
+		} while (map[result].filled);
+		return result;
 	}
 };
 
@@ -171,27 +176,30 @@ public:
 	}
 
 	void step() {
-		if (open.empty()) return;
+		while(true) {
+			if (open.empty()) return;
 
-		N current = open.back();
-		
-		vector<tuple<E, N>> unvisitedAdjacents;
-		for (const auto &i : getAdjacent(current)) {
-			if (visited.contains(get<1>(i))) continue;
-			unvisitedAdjacents.push_back(i);
-		}
+			N current = open.back();
+			
+			vector<tuple<E, N>> unvisitedAdjacents;
+			for (const auto &i : getAdjacent(current)) {
+				if (visited.contains(get<1>(i))) continue;
+				unvisitedAdjacents.push_back(i);
+			}
 
-		if (unvisitedAdjacents.empty()) {
-			open.pop_back();
-		}
-		else {
-			int idx = randomInt(unvisitedAdjacents.size());
-			auto &chosen = unvisitedAdjacents[idx]; 
-			N &dest = get<1>(chosen);
-			E &dir = get<0>(chosen); 
-			open.push_back(dest);
-			visited.insert(dest);
-			link(current, dir, dest);
+			if (unvisitedAdjacents.empty()) {
+				open.pop_back();
+			}
+			else {
+				int idx = randomInt(unvisitedAdjacents.size());
+				auto &chosen = unvisitedAdjacents[idx]; 
+				N &dest = get<1>(chosen);
+				E &dir = get<0>(chosen); 
+				open.push_back(dest);
+				visited.insert(dest);
+				link(current, dir, dest);
+				return;
+			}
 		}
 	}
 
@@ -217,42 +225,97 @@ void copyAndScale(const TriangularMap &src, TriangularMap &dest) {
 	}
 }
 
+void drawCell(const Point &src, TriangularMap &srcMap, TriangularMap &destMap) {
+	assert(destMap.base % srcMap.base == 0);
+	int scale = destMap.base / srcMap.base;
+	const Triangle &tSrc = srcMap.map[src];
+
+	if (TriangularMap::isPointingUp(src)) {
+		Point top = Point(src.x() * scale, src.y() * scale);
+		for (int y = 0; y < scale; ++y) {
+			for (int x = 0; x < TriangularMap::rowLen(y); ++x) {
+				bool filled = false;
+				if (x < 2 && !tSrc.links.contains(Edge::LEFT)) {
+					filled = true;
+				}
+				if (y == scale-1 && !tSrc.links.contains(Edge::VERTICAL)) { filled = true; }
+				if ((TriangularMap::rowLen(y) - x) <= 2 && !tSrc.links.contains(Edge::RIGHT)) {
+					filled = true;
+				}
+				// filled = true;
+				// corners always filled
+				if (x == 0 && y == 0) { filled = true; }
+				if (x == TriangularMap::rowLen(y)-1 && y == scale-1) { filled = true; }
+				if (x == 0 && y == scale-1) { filled = true; }
+				Point dest = top + Point(x, y);
+				destMap.map[dest].filled = filled;
+			}
+		}
+	}
+	else {
+		Point top = Point((src.x() + 1) * scale - 1, (src.y() + 1) * scale - 1);
+		for (int y = 0; y < scale; ++y) {
+			for (int x = 0; x < TriangularMap::rowLen(y); ++x) {
+				bool filled = false;
+				if (x < 2 && !tSrc.links.contains(Edge::RIGHT)) {
+					filled = true;
+				}
+				if (y == scale-1 && !tSrc.links.contains(Edge::VERTICAL)) { filled = true; }
+				if ((TriangularMap::rowLen(y) - x) <= 2 && !tSrc.links.contains(Edge::LEFT)) {
+					filled = true;
+				}
+				// corners always filled
+				if (x == 0 && y == 0) { filled = true; }
+				if (x == TriangularMap::rowLen(y)-1 && y == scale-1) { filled = true; }
+				if (x == 0 && y == scale-1) { filled = true; }
+				
+				Point dest = top + Point(-x, -y);
+				destMap.map[dest].filled = filled;
+			}
+		}
+
+	}
+}
+
 class Day26 : public IComponent {
 public:
-	const int BASE = 4;
+	const int BASE = 10;
 	const float SCALE = 1024.0f;
 	Vec2f origin = { (float)al_get_display_width(al_get_current_display()) / 2.0f, 40.0f };
 	
 	TriangularGrid grid[4] {
-		{ origin, BASE, SCALE / 4.0f },
-		{ origin, BASE * 4, SCALE / 16.0f },
-		{ origin, BASE * 16, SCALE / 64.0f },
-		{ origin, BASE * 64, SCALE / 256.0f },
+		{ origin, 1, SCALE },
+		{ origin, BASE, SCALE / 10.0f },
+		{ origin, BASE * 8, SCALE / 80.0f },
+		{ origin, BASE * 32, SCALE / 320.0f },
+		// { origin, BASE * 64, SCALE / 512.0f },
 	};
 	
 	TriangularMap map[4] {
+		{ 1 },
 		{ BASE },
-		{ BASE * 4 },
-		{ BASE * 16 },
-		{ BASE * 64 }
+		{ BASE * 8 },
+		{ BASE * 32 },
+		// { BASE * 64 }
 	};
 
-	int currentMap = 2;
+	int currentMap = 1;
 
 	void drawGrid(const TriangularGrid &grid, const TriangularMap & map, ALLEGRO_COLOR color) {
 		for (int y = 0; y < map.base; ++y) {
 			for (int x = 0; x < TriangularMap::rowLen(y); ++x) {
 				const auto &t = map.map.get(x, y);
+				Point pos { x, y };
+				auto tCoords = grid.triangleOutline(pos);
 				if (t.filled) {
-					Point pos { x, y };
-					auto tCoords = grid.triangleOutline(pos);
-					// al_draw_filled_triangle(
-					// 	tCoords[0].x(), tCoords[0].y(),
-					// 	tCoords[1].x(), tCoords[1].y(),
-					// 	tCoords[2].x(), tCoords[2].y(),
-					// 	color
-					// );
-
+					al_draw_filled_triangle(
+						tCoords[0].x(), tCoords[0].y(),
+						tCoords[1].x(), tCoords[1].y(),
+						tCoords[2].x(), tCoords[2].y(),
+						color
+					);
+				}
+				else if (t.visited) {
 					array<Edge, 3> POINTING_UP_ORDER { Edge::RIGHT, Edge::VERTICAL, Edge::LEFT };
 					array<Edge, 3> POINTING_DOWN_ORDER { Edge::VERTICAL, Edge::RIGHT, Edge::LEFT };
 					
@@ -280,39 +343,44 @@ public:
 
 	unique_ptr<RecursiveBacktracker<Point, Edge>> generator = nullptr;
 
-	bool first = true;
 	int frame = 0;
 	void update() override {
-		
-		if (first) {
+		if (++frame < 200) {
+			return;
+		}
+
+		if (!generator) {
 			auto getAdjacent = [=, this](Point node){
-				return map[currentMap].getAdjacent(node);
+				return map[currentMap-1].getAdjacent(node);
 			};
 			auto link = [=, this](Point src, Edge e, Point dest){
-				map[currentMap].link(src, e, dest);
+				map[currentMap-1].link(src, e, dest);
+				drawCell(src, map[currentMap-1], map[currentMap]);
+				drawCell(dest, map[currentMap-1], map[currentMap]);
 			};
-			Point start = map[currentMap].randomCell();
+			Point start = map[currentMap-1].randomCell();
 			generator = make_unique<RecursiveBacktracker<Point, Edge>>( start, getAdjacent, link );
-
-			// link(Point(0, 0), Edge::VERTICAL, Point(1, 1));
-			first = false;
 		}
-
-		// fill / remove random triangles...
-		frame++;
 		
-		if (generator) { generator->step(); }
+		if (generator) {
+			if (currentMap > 1) {
+				generator->step(); 
+				generator->step(); 
+			}
+			generator->step(); 
+
+		}
 
 		// periodically, copy to next grid and increase level
-		/*
-		if (generator.isDone()) {
+		
+		if (generator->isDone()) {
 			if (currentMap < 3) {
-				frame = 0;
 				copyAndScale(map[currentMap], map[currentMap+1]);
 				currentMap++;
+				generator = nullptr; // triggers re-initialisation
 			}
 		}
-		*/
+
 	}
 };
 
