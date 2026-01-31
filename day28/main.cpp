@@ -10,6 +10,7 @@
 #include "icomponent.h"
 #include <sstream>
 #include "xml.h"
+#include "richtextmodel.h"
 
 using namespace std;
 
@@ -22,7 +23,7 @@ const string TEXT { R"(<h1>Genuary 2026, Day 28 - HTML Only</h1>
 Text is drawn using allegro font routines. Click detection is emulated inside the C++ program.</p>)" 
 };
 
-	void parseXml(std::istream&& stream) {
+void parseXml(std::istream&& stream) {
 	try {
 		XmlParser parser(move(stream));
 		
@@ -74,11 +75,71 @@ public:
 	void update() override {}
 };
 
+RichTextModel parseHtml(std::istream &&stream) {
+	RichTextModel result;
+	std::string currentStyle = "";
+	try {
+		XmlParser parser(move(stream));
+		while (parser.next() != XmlParser::END_DOCUMENT) {
+			switch (parser.getEventType()) {
+				case XmlParser::START_TAG: {
+					std::cout << "Start Tag: " << parser.getName() << std::endl;
+					auto attrs = parser.getAttributes();
+					for (const auto& attr : attrs) {
+						std::cout << "  Attribute: " << attr.first 
+								<< " = \"" << attr.second << "\"" << std::endl;
+					}
+					// TODO: smarter approach to filter valid styles...
+					if (parser.getName() != "p") {
+						currentStyle = parser.getName();
+					}
+					break;
+				}
+				case XmlParser::END_TAG:
+					std::cout << "End Tag: " << parser.getName() << std::endl;
+					if (parser.getName() == "p") {
+						result.appendText("\n\n");
+					}
+					else {
+						currentStyle = "";
+					}
+					break;
+				case XmlParser::TEXT: {
+					std::string text = parser.getText();
+					if (!text.empty()) {
+						std::cout << "Text: \"" << text << "\"" << std::endl;
+					}
+					result.appendText(text, currentStyle, parser.getAttributes());
+					break;
+				}
+				case XmlParser::START_DOCUMENT:
+					std::cout << "Start Document" << std::endl;
+					break;
+				case XmlParser::ERROR:
+					std::cout << "Error at line " << parser.getLine() 
+							<< ", column " << parser.getColumn() << std::endl;
+					break;
+			}
+		}
+		std::cout << "End Document" << std::endl;
+		
+	} catch (const std::exception& e) {
+		std::cerr << "Error: " << e.what() << std::endl;
+	}
+	return result;
+}
+
 int main(int argc, const char *const *argv) {
 	
 	// Parse the sample XML
 	parseXml(std::stringstream(TEXT));
-	
+	auto richText = parseHtml(std::stringstream(TEXT));
+
+	for (size_t i = 0; i < richText.getNumSegments(); ++i) {
+		auto span = richText.getSegment(i);
+		
+		cout << "Span #" << i << " " << span.getStyle() << " [" << span.getText() << "]" << endl;
+	}
 	return 0;
 /*
 	MainLoop mainloop;
