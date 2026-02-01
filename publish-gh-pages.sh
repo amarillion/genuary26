@@ -3,7 +3,7 @@
 # First build the project, this brings the build folder up-to-date
 
 # rm -r build/RELEASE_EMSCRIPTEN/
-./make-emscripten-buildenv.sh
+./emscripten-make.sh
 cp index/*.* build/RELEASE_EMSCRIPTEN/
 
 # test using `http-server build/RELEASE_EMSCRIPTEN/`

@@ -305,6 +305,9 @@ public:
 	vector<Point> dirtyCells;
 
 	void draw(const GraphicsContext &gc) override {
+#ifdef __EMSCRIPTEN__
+		redraw = true;
+#endif
 		if (redraw) {
 			al_clear_to_color(BLACK);
 			drawGrid(grid[drawMap], map[drawMap], WHITE, BLACK);
@@ -357,7 +360,7 @@ public:
 		
 		if (generator) {
 			// generate faster at lower levels
-			int speedUp = (generateMap + 1) * (generateMap + 1) * (generateMap + 1);
+			int speedUp = (generateMap + 1) * (generateMap + 1) * (generateMap + 1) * 2;
 			for (int i = 0; i < speedUp; ++i) {
 				generator->step(); 
 			}
@@ -389,8 +392,13 @@ int main(int argc, const char *const *argv) {
 
 	if (!mainloop.init(argc, argv)) {
 		auto app = make_shared<Day26>();
+#ifdef __EMSCRIPTEN__
+		// TODO: bug in allegro-emscripten causes issues with intermediate buffer
+		mainloop.run(app.get());
+#else
 		auto canvas = make_shared<ResponsiveBuffer>(app);
 		mainloop.run(canvas.get());
+#endif
 	}
 	return 0;
 }
