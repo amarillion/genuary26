@@ -118,6 +118,6 @@ clean:
 
 serve:
 # Remember to use -c-1 flag to disable caching. 
-	http-server -c-1 build/DEBUG_EMSCRIPTEN
+	http-server -c-1 build/RELEASE_EMSCRIPTEN
 
 print-%  : ; @echo $* = $($*)
