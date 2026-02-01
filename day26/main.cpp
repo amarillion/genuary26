@@ -92,9 +92,6 @@ public:
 			case VERTICAL: reverse = VERTICAL; break; 
 		}
 
-		tSrc.visited = true;
-		tDest.visited = true;
-
 		tSrc.links.insert(e);
 		tDest.links.insert(reverse);
 	}
@@ -277,29 +274,33 @@ void drawCell(const Point &src, TriangularMap &srcMap, TriangularMap &destMap) {
 	}
 }
 
+constexpr int NUM_LEVELS = 3;
+	
 class Day26 : public IComponent {
 public:
-	const int BASE = 10;
-	const float SCALE = 1024.0f;
-	Vec2f origin = { (float)al_get_display_width(al_get_current_display()) / 2.0f, 40.0f };
+	// scale factor for each lower level
+	const int BASE = 6;
+	const int SECOND = 9; // I found having the highest factor in the middle looks best, it avoids large white chunks.
+	const int THIRD = 5;
 	
-	TriangularGrid grid[4] {
-		{ origin, 1, SCALE },
-		{ origin, BASE, SCALE / 10.0f },
-		{ origin, BASE * 8, SCALE / 80.0f },
-		{ origin, BASE * 32, SCALE / 320.0f },
-		// { origin, BASE * 64, SCALE / 512.0f },
+	const float SCALE = 1080.0f; // precisely 4 times all factors multiplied, fits nicely in 1080p
+
+	Vec2f origin = { (float)al_get_display_width(al_get_current_display()) / 2.0f, 20.0f };
+	
+	TriangularGrid grid[NUM_LEVELS] {
+		{ origin, BASE, SCALE / (float)BASE },
+		{ origin, BASE * SECOND, SCALE / (float)(BASE * SECOND) },
+		{ origin, BASE * SECOND * THIRD, SCALE / (float)(BASE * SECOND * THIRD) },
 	};
 	
-	TriangularMap map[4] {
-		{ 1 },
+	TriangularMap map[NUM_LEVELS] {
 		{ BASE },
-		{ BASE * 8 },
-		{ BASE * 32 },
-		// { BASE * 64 }
+		{ BASE * SECOND },
+		{ BASE * SECOND * THIRD },
 	};
 
-	int currentMap = 1;
+	int generateMap = 0;
+	int drawMap = 1;
 
 	void drawGrid(const TriangularGrid &grid, const TriangularMap & map, ALLEGRO_COLOR color) {
 		for (int y = 0; y < map.base; ++y) {
@@ -336,7 +337,7 @@ public:
 
 	void draw(const GraphicsContext &gc) override {
 		al_clear_to_color(BLACK);
-		drawGrid(grid[currentMap], map[currentMap], WHITE);
+		drawGrid(grid[drawMap], map[drawMap], WHITE);
 	}
 
 	virtual ~Day26() {}
@@ -349,38 +350,46 @@ public:
 			return;
 		}
 
+		// create a new generator if it doesn't exist yet
 		if (!generator) {
 			auto getAdjacent = [=, this](Point node){
-				return map[currentMap-1].getAdjacent(node);
+				return map[generateMap].getAdjacent(node);
 			};
 			auto link = [=, this](Point src, Edge e, Point dest){
-				map[currentMap-1].link(src, e, dest);
-				drawCell(src, map[currentMap-1], map[currentMap]);
-				drawCell(dest, map[currentMap-1], map[currentMap]);
+				map[generateMap].link(src, e, dest);
+				if (generateMap != drawMap) {
+					drawCell(src, map[generateMap], map[drawMap]);
+					drawCell(dest, map[generateMap], map[drawMap]);
+				}
+				else {
+					map[generateMap].map[src].visited = true;
+					map[generateMap].map[dest].visited = true;
+				}
 			};
-			Point start = map[currentMap-1].randomCell();
+			Point start = map[generateMap].randomCell();
 			generator = make_unique<RecursiveBacktracker<Point, Edge>>( start, getAdjacent, link );
 		}
 		
 		if (generator) {
-			if (currentMap > 1) {
-				generator->step(); 
+			// generate faster at lower levels
+			int speedUp = (generateMap + 1) * (generateMap + 1);
+			for (int i = 0; i < speedUp; ++i) {
 				generator->step(); 
 			}
-			generator->step(); 
-
+			generator->step();
 		}
 
-		// periodically, copy to next grid and increase level
-		
-		if (generator->isDone()) {
-			if (currentMap < 3) {
-				copyAndScale(map[currentMap], map[currentMap+1]);
-				currentMap++;
-				generator = nullptr; // triggers re-initialisation
+		// when generator is done, copy to next grid and increase level
+		if (generator && generator->isDone()) {
+			if (drawMap < NUM_LEVELS - 1) {
+				copyAndScale(map[drawMap], map[drawMap + 1]);
+				drawMap++;
+			}
+			if (generateMap < NUM_LEVELS - 1) {
+				generateMap++;
+				generator = nullptr; // triggers re-initialisation next update
 			}
 		}
-
 	}
 };
 
