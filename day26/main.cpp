@@ -4,11 +4,12 @@
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_font.h>
 
-#include "pixelview.h"
+#include "responsivebuffer.h"
 #include "icomponent.h"
 #include <set>
 #include "map2d.h"
 #include "color.h"
+#include "recursivebacktracker.h"
 
 using namespace std;
 
@@ -154,57 +155,6 @@ struct TriangularGrid {
 	}
 };
 
-/**
- * Step-wise maze generator using recursive backtracking
- */
-template<typename N, typename E>
-class RecursiveBacktracker {
-	typedef function<vector<tuple<E, N>>(N)> AdjacencyFunc;
-	typedef function<void(N, E, N)> LinkFunc;
-
-	AdjacencyFunc getAdjacent;
-	LinkFunc link;
-	vector<N> open;
-	set<N> visited;
-
-public:
-	RecursiveBacktracker(N start, AdjacencyFunc getAdjacent, LinkFunc link): getAdjacent(getAdjacent), link(link) {
-		open.push_back(start);
-	}
-
-	void step() {
-		while(true) {
-			if (open.empty()) return;
-
-			N current = open.back();
-			
-			vector<tuple<E, N>> unvisitedAdjacents;
-			for (const auto &i : getAdjacent(current)) {
-				if (visited.contains(get<1>(i))) continue;
-				unvisitedAdjacents.push_back(i);
-			}
-
-			if (unvisitedAdjacents.empty()) {
-				open.pop_back();
-			}
-			else {
-				int idx = randomInt(unvisitedAdjacents.size());
-				auto &chosen = unvisitedAdjacents[idx]; 
-				N &dest = get<1>(chosen);
-				E &dir = get<0>(chosen); 
-				open.push_back(dest);
-				visited.insert(dest);
-				link(current, dir, dest);
-				return;
-			}
-		}
-	}
-
-	bool isDone() {
-		return open.empty();
-	}
-};
-
 void copyAndScale(const TriangularMap &src, TriangularMap &dest) {
 	assert(dest.base % src.base == 0);
 	int scale = dest.base / src.base;
@@ -219,58 +169,6 @@ void copyAndScale(const TriangularMap &src, TriangularMap &dest) {
 			Triangle &dt = dest.map.get(dx, dy);
 			dt.filled = st.filled;
 		}
-	}
-}
-
-void drawCell(const Point &src, TriangularMap &srcMap, TriangularMap &destMap) {
-	assert(destMap.base % srcMap.base == 0);
-	int scale = destMap.base / srcMap.base;
-	const Triangle &tSrc = srcMap.map[src];
-
-	if (TriangularMap::isPointingUp(src)) {
-		Point top = Point(src.x() * scale, src.y() * scale);
-		for (int y = 0; y < scale; ++y) {
-			for (int x = 0; x < TriangularMap::rowLen(y); ++x) {
-				bool filled = false;
-				if (x < 2 && !tSrc.links.contains(Edge::LEFT)) {
-					filled = true;
-				}
-				if (y == scale-1 && !tSrc.links.contains(Edge::VERTICAL)) { filled = true; }
-				if ((TriangularMap::rowLen(y) - x) <= 2 && !tSrc.links.contains(Edge::RIGHT)) {
-					filled = true;
-				}
-				// filled = true;
-				// corners always filled
-				if (x == 0 && y == 0) { filled = true; }
-				if (x == TriangularMap::rowLen(y)-1 && y == scale-1) { filled = true; }
-				if (x == 0 && y == scale-1) { filled = true; }
-				Point dest = top + Point(x, y);
-				destMap.map[dest].filled = filled;
-			}
-		}
-	}
-	else {
-		Point top = Point((src.x() + 1) * scale - 1, (src.y() + 1) * scale - 1);
-		for (int y = 0; y < scale; ++y) {
-			for (int x = 0; x < TriangularMap::rowLen(y); ++x) {
-				bool filled = false;
-				if (x < 2 && !tSrc.links.contains(Edge::RIGHT)) {
-					filled = true;
-				}
-				if (y == scale-1 && !tSrc.links.contains(Edge::VERTICAL)) { filled = true; }
-				if ((TriangularMap::rowLen(y) - x) <= 2 && !tSrc.links.contains(Edge::LEFT)) {
-					filled = true;
-				}
-				// corners always filled
-				if (x == 0 && y == 0) { filled = true; }
-				if (x == TriangularMap::rowLen(y)-1 && y == scale-1) { filled = true; }
-				if (x == 0 && y == scale-1) { filled = true; }
-				
-				Point dest = top + Point(-x, -y);
-				destMap.map[dest].filled = filled;
-			}
-		}
-
 	}
 }
 
@@ -302,42 +200,127 @@ public:
 	int generateMap = 0;
 	int drawMap = 1;
 
-	void drawGrid(const TriangularGrid &grid, const TriangularMap & map, ALLEGRO_COLOR color) {
-		for (int y = 0; y < map.base; ++y) {
-			for (int x = 0; x < TriangularMap::rowLen(y); ++x) {
-				const auto &t = map.map.get(x, y);
-				Point pos { x, y };
-				auto tCoords = grid.triangleOutline(pos);
-				if (t.filled) {
-					al_draw_filled_triangle(
-						tCoords[0].x(), tCoords[0].y(),
-						tCoords[1].x(), tCoords[1].y(),
-						tCoords[2].x(), tCoords[2].y(),
-						color
-					);
+	void drawCellDown(const Point &src, TriangularMap &srcMap, TriangularMap &destMap) {
+		assert(destMap.base % srcMap.base == 0);
+		int scale = destMap.base / srcMap.base;
+		const Triangle &tSrc = srcMap.map[src];
+
+		if (TriangularMap::isPointingUp(src)) {
+			Point top = Point(src.x() * scale, src.y() * scale);
+			for (int y = 0; y < scale; ++y) {
+				for (int x = 0; x < TriangularMap::rowLen(y); ++x) {
+					bool filled = false;
+					if (x < 2 && !tSrc.links.contains(Edge::LEFT)) {
+						filled = true;
+					}
+					if (y == scale-1 && !tSrc.links.contains(Edge::VERTICAL)) { filled = true; }
+					if ((TriangularMap::rowLen(y) - x) <= 2 && !tSrc.links.contains(Edge::RIGHT)) {
+						filled = true;
+					}
+					// filled = true;
+					// corners always filled
+					if (x == 0 && y == 0) { filled = true; }
+					if (x == TriangularMap::rowLen(y)-1 && y == scale-1) { filled = true; }
+					if (x == 0 && y == scale-1) { filled = true; }
+					Point dest = top + Point(x, y);
+					destMap.map[dest].filled = filled;
+					dirtyCells.push_back(dest);
 				}
-				else if (t.visited) {
-					array<Edge, 3> POINTING_UP_ORDER { Edge::RIGHT, Edge::VERTICAL, Edge::LEFT };
-					array<Edge, 3> POINTING_DOWN_ORDER { Edge::VERTICAL, Edge::RIGHT, Edge::LEFT };
+			}
+		}
+		else {
+			Point top = Point((src.x() + 1) * scale - 1, (src.y() + 1) * scale - 1);
+			for (int y = 0; y < scale; ++y) {
+				for (int x = 0; x < TriangularMap::rowLen(y); ++x) {
+					bool filled = false;
+					if (x < 2 && !tSrc.links.contains(Edge::RIGHT)) {
+						filled = true;
+					}
+					if (y == scale-1 && !tSrc.links.contains(Edge::VERTICAL)) { filled = true; }
+					if ((TriangularMap::rowLen(y) - x) <= 2 && !tSrc.links.contains(Edge::LEFT)) {
+						filled = true;
+					}
+					// corners always filled
+					if (x == 0 && y == 0) { filled = true; }
+					if (x == TriangularMap::rowLen(y)-1 && y == scale-1) { filled = true; }
+					if (x == 0 && y == scale-1) { filled = true; }
 					
-					for (int i = 0; i < 3; ++i) {
-						Edge currentEdge = TriangularMap::isPointingUp(pos) ? POINTING_UP_ORDER[i] : POINTING_DOWN_ORDER[i];
-						if (!t.links.contains(currentEdge)) {
-							al_draw_line(
-								tCoords[i].x(), tCoords[i].y(),
-								tCoords[(i + 1) % 3].x(), tCoords[(i + 1) % 3].y(),
-								color, 1.0
-							);
-						}
+					Point dest = top + Point(-x, -y);
+					destMap.map[dest].filled = filled;
+					dirtyCells.push_back(dest);
+				}
+			}
+
+		}
+	}
+
+	void renderCell(const Point &pos, const TriangularMap &map, const TriangularGrid &grid, ALLEGRO_COLOR color, ALLEGRO_COLOR bg, bool erase = false) {
+		const auto &t = map.map[pos];
+		auto tCoords = grid.triangleOutline(pos);
+		if (t.filled) {
+			al_draw_filled_triangle(
+				tCoords[0].x(), tCoords[0].y(),
+				tCoords[1].x(), tCoords[1].y(),
+				tCoords[2].x(), tCoords[2].y(),
+				color
+			);
+		}
+		else {
+			if (erase) {
+				al_draw_filled_triangle(
+					tCoords[0].x(), tCoords[0].y(),
+					tCoords[1].x(), tCoords[1].y(),
+					tCoords[2].x(), tCoords[2].y(),
+					bg
+				);
+			}
+			if (t.visited) {
+				array<Edge, 3> POINTING_UP_ORDER { Edge::RIGHT, Edge::VERTICAL, Edge::LEFT };
+				array<Edge, 3> POINTING_DOWN_ORDER { Edge::VERTICAL, Edge::RIGHT, Edge::LEFT };
+				
+				for (int i = 0; i < 3; ++i) {
+					Edge currentEdge = TriangularMap::isPointingUp(pos) ? POINTING_UP_ORDER[i] : POINTING_DOWN_ORDER[i];
+					if (!t.links.contains(currentEdge)) {
+						al_draw_line(
+							tCoords[i].x(), tCoords[i].y(),
+							tCoords[(i + 1) % 3].x(), tCoords[(i + 1) % 3].y(),
+							color, 1.0
+						);
 					}
 				}
 			}
 		}
 	}
 
+	void drawGrid(const TriangularGrid &grid, const TriangularMap & map, ALLEGRO_COLOR color, ALLEGRO_COLOR bg) {
+		for (int y = 0; y < map.base; ++y) {
+			for (int x = 0; x < TriangularMap::rowLen(y); ++x) {
+				Point pos { x, y };
+				renderCell(pos, map, grid, color, bg);
+			}
+		}
+	}
+
+	bool redraw = true;
+	vector<Point> dirtyCells;
+
 	void draw(const GraphicsContext &gc) override {
-		al_clear_to_color(BLACK);
-		drawGrid(grid[drawMap], map[drawMap], WHITE);
+		if (redraw) {
+			al_clear_to_color(BLACK);
+			drawGrid(grid[drawMap], map[drawMap], WHITE, BLACK);
+			redraw = false;
+		}
+		else {
+			for(const auto &cell : dirtyCells) {
+				renderCell(cell, map[drawMap], grid[drawMap], WHITE, BLACK, true);
+			}
+			dirtyCells.clear();
+		}
+	}
+
+	void setSize(const Point &dim) override {
+		// parent buffer has been recreated, so we need to redraw everything
+		redraw = true;
 	}
 
 	virtual ~Day26() {}
@@ -358,10 +341,12 @@ public:
 			auto link = [=, this](Point src, Edge e, Point dest){
 				map[generateMap].link(src, e, dest);
 				if (generateMap != drawMap) {
-					drawCell(src, map[generateMap], map[drawMap]);
-					drawCell(dest, map[generateMap], map[drawMap]);
+					drawCellDown(src, map[generateMap], map[drawMap]);
+					drawCellDown(dest, map[generateMap], map[drawMap]);
 				}
 				else {
+					dirtyCells.push_back(src);
+					dirtyCells.push_back(dest);
 					map[generateMap].map[src].visited = true;
 					map[generateMap].map[dest].visited = true;
 				}
@@ -372,11 +357,10 @@ public:
 		
 		if (generator) {
 			// generate faster at lower levels
-			int speedUp = (generateMap + 1) * (generateMap + 1);
+			int speedUp = (generateMap + 1) * (generateMap + 1) * (generateMap + 1);
 			for (int i = 0; i < speedUp; ++i) {
 				generator->step(); 
 			}
-			generator->step();
 		}
 
 		// when generator is done, copy to next grid and increase level
@@ -405,7 +389,8 @@ int main(int argc, const char *const *argv) {
 
 	if (!mainloop.init(argc, argv)) {
 		auto app = make_shared<Day26>();
-		mainloop.run(app.get());
+		auto canvas = make_shared<ResponsiveBuffer>(app);
+		mainloop.run(canvas.get());
 	}
 	return 0;
 }
