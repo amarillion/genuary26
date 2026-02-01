@@ -332,7 +332,8 @@ public:
 
 	int frame = 0;
 	void update() override {
-		if (++frame < 200) {
+		// short delay at start
+		if (++frame < 30) {
 			return;
 		}
 
