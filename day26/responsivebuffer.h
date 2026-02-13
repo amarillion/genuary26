@@ -12,10 +12,10 @@
  */
 class ResponsiveBuffer: public IComponent {
 private:
-	std::shared_ptr<IComponent> childComponent;
-	int w;
-	int h;
-	ALLEGRO_BITMAP *buffer;
+	std::shared_ptr<IComponent> childComponent = nullptr;
+	int w = 0;
+	int h = 0;
+	ALLEGRO_BITMAP *buffer = nullptr;
 public:
 	ResponsiveBuffer(std::shared_ptr<IComponent> cc);
 	virtual ~ResponsiveBuffer();
